@@ -327,7 +327,7 @@ def runtimeseries(N,F,P,q,G,h,A,coop,lapse):
         opt=dcpowerflow(P,q,G,h,A,b)   ########### Save relevant solution as flows
         for j in range(Nlinks):
             F[j][t]=opt[j+1]           
-        for k in N:                ########### Save balancing at each node
+        for k in N:              ########### Save balancing at each node
             k.balancing[t]=opt[2+Nlinks+k.id]
             k.curtailment[t]=opt[3+Nlinks+Nnodes+k.id]  
         end=time()
