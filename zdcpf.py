@@ -3,7 +3,7 @@ from pylab import *
 from scipy import *
 from numpy import concatenate as conc
 import numpy as np
-from cvxopt import matrix,solvers
+from cvxopt import matrix,solvers,spmatrix,sparse,spdiag
 from time import time
 import sys, os
 from copy import deepcopy
@@ -140,13 +140,13 @@ class Nodes:
 
         npzobj = load(path+load_filename)
         
-#        for attribute in npzobj.files:
-#            for i in arange(len(self)):
-#                print self.cache[i],attribute,npzobj[attribute][i]
-#                setattr(self.cache[i],attribute,npzobj[attribute][i])
+        for attribute in npzobj.files:
+           for i in arange(len(self)):
+               print self.cache[i],attribute,npzobj[attribute][i]
+               setattr(self.cache[i],attribute,npzobj[attribute][i])
 
-        for i in arange(len(self)):
-            setattr(self.cache[i],'balancing',npzobj['balancing'][i])
+#        for i in arange(len(self)):
+#            setattr(self.cache[i],'balancing',npzobj['balancing'][i])
 
         npzobj.close()
 
@@ -223,7 +223,9 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
             if i>j:
                 if Ad[i,j] > 0: 
                     L+=1
-    K=np.zeros((len(Ad),L))
+    K_values=[]
+    K_column_indices=[]
+    K_row_indices=[]
     h=np.zeros(L*2)
     h=np.append(h,np.zeros(3*len(Ad)))
     L=0
@@ -233,22 +235,27 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
         for i in range(len(Ad)):
             if i>j:
                 if Ad[i,j] > 0: 
-                    K[j,L]=1  
-                    K[i,L]=-1
+                    K_values.append(1)
+                    K_values.append(-1)
+                    K_column_indices.append(L)
+                    K_column_indices.append(L)
+                    K_row_indices.append(j)
+                    K_row_indices.append(i)
                     h[2*L]=Ad[i,j]
                     h[2*L+1]=Ad[j,i]
                     if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
                     L+=1
+    K=spmatrix(K_values,K_row_indices,K_column_indices)
     return K,h, listFlows               
 
-def generatemat(N,admat,b=None,path='./settings/',copper=0,h0=None):
+def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     K,h, listFlows=AtoKh(N,path+admat)
     if h0 != None: 
         h[2:88]=h0
     if b != None:
         for i in range(2*np.size(listFlows,0)): h[i]*=b
-    Nnodes=np.size(K,0)
-    Nlinks=np.size(K,1)
+    Nnodes=np.size(matrix(K),0)
+    Nlinks=np.size(matrix(K),1)
     # These numbers include the dummy node and link
     # With this info, we create the P matrix, sized
     P1=np.eye(Nlinks+2*Nnodes)  # because a row is needed for each flow, and two for each node
@@ -537,3 +544,7 @@ def Plot_D():
 #	print lF[i][0] , '      ' , round(h0[2*i]) ,'     ' ,h[2*i] , '        ' , round(h[2*i]/h0[2*i],2)
 #	print '               ',round(h0[2*i+1])  ,'     ',h[2*i+1] ,'         ', round(h[2*i+1]/h0[2*i+1],2)
 
+# N = Nodes()
+# N,F,lF = zdcpf(N,coop=0,copper=1)
+# N.save_nodes('copper_nodes')
+# save('./results/'+'copper_flows',F)

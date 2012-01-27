@@ -506,11 +506,11 @@ has to be lower than the marginal cost of producing it at the
 destination with balancing plus the cost of curtailing it at the
 origin. In other words 
 \begin{align}
-\frac{\partial C}{\partial F_{ij}} < 
+\frac{\partial C}{\partial F_{ij}} \stackrel{!}{<}
 \frac{\partial C}{\partial B_j} +\frac{\partial C}{\partial R_i}
 \label{eq:trans1}
 \end{align}
-which leads to
+which is in every case fulfilled if
 \begin{align*}
 2P_F ( N-1) \Delta_0 < q_B + q_R,
 \end{align*}
@@ -557,7 +557,7 @@ used node $j$. That is
 &=2P_B B_j +q_B+\sum_l  2P_F\Delta_0 \leq 2P_BB_j+q_B +2P_F(N-1)\Delta_0
 \end{align*}
 where, again, $(N-1)\Delta_0$ represents the maximal transferable
-mismatch along the longest possible route. The inequality in (4.6) can
+mismatch along the longest possible route. This inequality can
 be simplified to
 \begin{align}
 \nonumber 2P_B B_i+q_B &> 2P_B B_j+q_B +2P_F( N-1)\Delta_0\\
@@ -570,7 +570,8 @@ between nodes $i$ and $j$ are, the (relatively) cheaper it will be to
 transport power from $j$ to $i$ in comparison to balancing at
 $i$. This term explodes as the balancing production in the two nodes
 equals out, and $B_i=B_j$, so some tolerance level must be
-introduced. We set this to $\Delta B=B_i - B_j\approx 1\rm\,MW$. 
+introduced. We set this to $\Delta B=B_i - B_j\approx 1\rm\,MW$, and
+then set $P_B$ accordingly.
 
 We found that ensuring that inequality \eqref{eq:trans1} holds makes
 the system behave as a weakly independent grid, and by further
