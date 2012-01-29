@@ -226,6 +226,7 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
     K_values=[]
     K_column_indices=[]
     K_row_indices=[]
+    K2=np.zeros(len(Ad),L)
     h=np.zeros(L*2)
     h=np.append(h,np.zeros(3*len(Ad)))
     L=0
@@ -235,18 +236,17 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
         for i in range(len(Ad)):
             if i>j:
                 if Ad[i,j] > 0: 
-                    K_values.append(1)
-                    K_values.append(-1)
-                    K_column_indices.append(L)
-                    K_column_indices.append(L)
-                    K_row_indices.append(j)
-                    K_row_indices.append(i)
+                    K_values.extend([1,-1])
+                    K_column_indices.extend([L,L])
+                    K_row_indices.extend([j,i])
+                    K2[j,L]=1
+                    K2[i,L]=-1
                     h[2*L]=Ad[i,j]
                     h[2*L+1]=Ad[j,i]
                     if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
                     L+=1
     K=spmatrix(K_values,K_row_indices,K_column_indices)
-    return K,h, listFlows               
+    return K,K2,h, listFlows               
 
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     K,h, listFlows=AtoKh(N,path+admat)
