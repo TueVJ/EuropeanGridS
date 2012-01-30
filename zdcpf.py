@@ -249,7 +249,7 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
     return K,Kold,h, listFlows               
 
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
-    K,h, listFlows=AtoKh(N,path+admat)
+    K,Kold,h, listFlows=AtoKh(N,path+admat)
     if h0 != None: 
         h[2:88]=h0
     if b != None:
@@ -273,12 +273,20 @@ def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     A1old=np.concatenate((matrix(K),-np.eye(Nnodes)),axis=1)
     Aold=np.concatenate((A1old,np.eye(Nnodes)),axis=1)
     # See documentation for why first row is cut
-    A=np.delete(A,np.s_[0],axis=0)
-    Aold=np.delete(A,np.s_[0],axis=0)
+    A=A[1:,:]
+    Aold=np.delete(Aold,np.s_[0],axis=0)
     # b vector will be defined by the mismatches, in MAIN
     # Finally, the inequality matrix and vector, G and h.
-    # Refer to doc to understand what the hell I'm doing, as I build G...
-    G1=spmatrix(1.,range(Nlinks),range(Nlinks))
+    # Refer to doc to understand what the hell I'm doing, as I build
+    # G...
+    G1_values=[]
+    G1_row_ind=[]
+    G1_col_ind=[]
+    for i in range(Nlinks):
+      G1_values.extend([1,-1])
+      G1_col_ind.extend([i,i])
+    G1_row_ind=range(2*Nlinks)
+    G1=spmatrix(G1_values,G1_row_ind,G1_col_ind)
     G1old=np.eye(Nlinks)
     for i in range(Nlinks-1):
         i+=i
@@ -286,31 +294,49 @@ def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     G1old=np.concatenate((G1old,-G1old[-1:]))
     # to model copper plate, we forget about the effect of G matrix on the flows
     if copper == 1:
+        G1=spmatrix([1,-1],[0,1],[0,0],(2*Nlinks,Nlinks))
         G1old*=0
         G1old[0,0]=1
         G1old[1,0]=-1
     # G1 is ready, now we make G2
+    G2=spmatrix([],[],[],(2*Nlinks,2*Nnodes))
     G2old=np.zeros((2*Nlinks,2*Nnodes))
     # G3 is built as [ 0 | -I | 0 ]
+    G3=spmatrix(-1.,range(Nnodes),range(Nnodes))
+    G3_hlp1=spmatrix([],[],[],(Nnodes,Nlinks))
+    G3_hlp2=spmatrix([],[],[],(Nnodes,Nnodes))
+    G3=sparse([[G3_hlp1],[G3],[G3_hlp2]])
     g3=np.concatenate((np.zeros((Nnodes,Nlinks)),-np.eye(Nnodes)),axis=1)
     G3old=np.concatenate((g3,np.zeros((Nnodes,Nnodes))),axis=1)
+    G4_values=[]
+    G4_row_ind=[]
+    G4_col_ind=[]
+    for i in range(Nnodes):
+      G4_values.extend([1,-1])
+      G4_col_ind.extend([i,i])
+    G4_row_ind=range(2*(Nnodes))
+    G4=spmatrix(G4_values,G4_row_ind,G4_col_ind)
     g4=np.eye(Nnodes)
     G4old=g4
     for i in range(Nnodes-1):
         i+=i
         G4old=np.insert(G4old,i+1,-G4old[i],axis=0)
     G4old=np.concatenate((G4old,-G4old[-1:]))
-    Gold5=np.concatenate((np.zeros((2*Nnodes,Nlinks+Nnodes)),G4old),axis=1)
+    G5=spmatrix([],[],[],(2*(Nnodes),Nlinks+Nnodes))
+    G5=sparse([[G5],[G4]])
+    G5old=np.concatenate((np.zeros((2*Nnodes,Nlinks+Nnodes)),G4old),axis=1)
+    G=sparse([[G1],[G2]])
+    G=sparse([G,G3,G5])
     Gold=np.concatenate((G1old,G2old),axis=1)
     Gold=np.concatenate((Gold,G3old))
-    Gold=np.concatenate((Gold,Gold5))
+    Gold=np.concatenate((Gold,G5old))
     return P,Pold,q,G,Gold,h,A,Aold,K,Kold, listFlows
 
 def runtimeseries(N,F,P,q,G,h,A,coop,lapse):
     if lapse==None:
         lapse=Nodes[0].mismatch.shape[0]
-    Nlinks=np.size(F,0)
-    Nnodes=np.size(A,0)
+    Nlinks=np.size(matrix(F),0)
+    Nnodes=np.size(matrix(A),0)
     start=time()
     b=np.zeros(Nnodes)
     b=matrix(b,tc='d')
@@ -374,14 +400,14 @@ def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=No
     if lapse == None:
         lapse=N[0].nhours
     P,q,G,h,A,K, listFlows = generatemat(N,admat,b,path,copper,h0)
-    Nnodes=np.size(K,0)-1
-    Nlinks=np.size(K,1)-1
+    Nnodes=np.size(matrix(K),0)-1
+    Nlinks=np.size(matrix(K),1)-1
     F=np.zeros((Nlinks,lapse))
-    P=matrix(P,tc='d')
+    P=sparse(P,tc='d')
     q=matrix(q,tc='d')
-    G=matrix(G,tc='d')
+    G=sparse(G,tc='d')
     h=matrix(h,tc='d')
-    A=matrix(A,tc='d')
+    A=sparse(A,tc='d')
     N,F=runtimeseries(N,F,P,q,G,h,A,coop,lapse)
     return N,F, listFlows
 
