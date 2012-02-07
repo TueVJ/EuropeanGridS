@@ -21,10 +21,16 @@ def gamma_copper():
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
 
-def gamma_today():
+def gamma_today(start=None):
     N = Nodes()
     N.set_alphas(0.7)
+    if start != None:
+        skip = start
+    else:
+        skip = 0
     for i in range(101):
+        if (i < skip):
+            continue
         gamma = i*0.01
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
@@ -34,11 +40,17 @@ def gamma_today():
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
 
-def gamma_quant(quant=0.90):
+def gamma_quant(quant=0.90,start=None):
     h0=get_quant(quant)
     N = Nodes()
     N.set_alphas(0.7)
+    if start != None:
+        skip = start
+    else:
+        skip = 0
     for i in range(101):
+        if (i < skip):
+            continue
         gamma = i*0.01
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
