@@ -250,7 +250,7 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     K,h, listFlows=AtoKh(N,path+admat)
     if h0 != None: 
-        h[2:88]=h0
+        h[2:90]=h0
     if b != None:
         for i in range(2*np.size(listFlows,0)): h[i]*=b
     Nnodes=np.size(matrix(K),0)
