@@ -1,15 +1,63 @@
 from zdcpf import *
-#import scipy.optimize as optimize
-from pylab import *
-from scipy import *
-import scipy.optimize as optimize
-from numpy import concatenate as conc
-import numpy as np
-from cvxopt import matrix,solvers
-from time import time
-import os
-from copy import deepcopy
-import pickle
+from scipy import optimize as optimize
+
+def sort_to_node_order(arr):
+    '''For some reason, Rolando has a strange node order that does not
+    match the alphabetical I am using. So, I have to convert.'''
+    sortarr = []
+    sortarr.append(arr[0])
+    sortarr.append(arr[10])
+    sortarr.append(arr[19])
+    sortarr.append(arr[3])
+    sortarr.append(arr[9])
+    sortarr.append(arr[18])
+    sortarr.append(arr[1])
+    sortarr.append(arr[11])
+    sortarr.append(arr[21])
+    sortarr.append(arr[2])
+    sortarr.append(arr[12])
+    sortarr.append(arr[20])
+    sortarr.append(arr[5])
+    sortarr.append(arr[16])
+    sortarr.append(arr[22])
+    sortarr.append(arr[4])
+    sortarr.append(arr[13])
+    sortarr.append(arr[26])
+    sortarr.append(arr[6])
+    sortarr.append(arr[15])
+    sortarr.append(arr[23])
+    sortarr.append(arr[7])
+    sortarr.append(arr[14])
+    sortarr.append(arr[25])
+    sortarr.append(arr[8])
+    sortarr.append(arr[17])
+    sortarr.append(arr[24])
+
+    return sortarr
+
+def get_basepath_gamma(year,filename='./results/basepath_gamma.npy'):
+
+    print "Loading: {0}. Warning columns not pre-labeled!!".format(filename)
+    data = np.load(filename)
+
+    Gamma = zeros(len(data)-1)
+    for i in arange(len(Gamma)):
+        Gamma[i] = interp(year,data[0],data[i+1])
+    gamma = sort_to_node_order(Gamma)
+    
+    return gamma
+
+def get_basepath_alpha(year,filename='./results/basepath_alpha_w.npy'):
+
+    print "Loading: {0}. Warning columns not pre-labeled!!".format(filename)
+    data = np.load(filename)
+
+    Alpha = zeros(len(data)-1)
+    for i in arange(len(Alpha)):
+        Alpha[i] = interp(year,data[0],data[i+1])
+    alpha = sort_to_node_order(Alpha)
+
+    return alpha
 
 def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,step=2):
 
@@ -64,9 +112,9 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
         weight = array([13672.325571167074,16629.057925672601,2312.6684067162068,1630.6221299198942,18730.927464722623])
         #plot_basepath_gamma_alpha(year,array(gamma),array(alpha_w),weight)
 
-    np.save('basepath_gamma',concatenate([array(year,ndmin=2),array(gamma)]))
+    np.save('./results/basepath_gamma',concatenate([array(year,ndmin=2),array(gamma)]))
     print 'Saved file: basepath_gamma.npy'
-    np.save('basepath_alpha_w',concatenate([array(year,ndmin=2),array(alpha_w)]))
+    np.save('./results/basepath_alpha_w',concatenate([array(year,ndmin=2),array(alpha_w)]))
     print 'Saved file: basepath_alpha_w.npy'
 
 

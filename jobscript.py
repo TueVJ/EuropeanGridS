@@ -9,6 +9,7 @@ from time import time
 import os
 from copy import deepcopy
 import pickle
+from logistic_gammas import *
 
 def copper_flow():
     N = Nodes()
@@ -69,6 +70,46 @@ def gamma_quant(quant=0.90,start=None):
         print name
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
+
+def gamma_logfit(linecap='copper',step=2,start=None):
+    if (linecap == 'copper'):
+        copper = 1
+        h0 = None
+    elif (linecap == '0.40Q'):
+        h0 = get_quant(0.40)
+        copper = 0
+    elif (linecap == '0.90Q'):
+        h0 = get_quant(0.90)
+        copper = 0
+    elif (linecap == 'today'):
+        h0 = None
+        copper = 0
+    else:
+        print 'invalid linecap. abort'
+        return
+    print 'linecap: ',linecap
+        
+    #generate_basepath_gamma_alpha(step=step)
+    N = Nodes()
+    if start != None:
+        skip = start
+    else:
+        skip = 0
+    years= arange(1990,2050+1,1)
+    for year in years:
+        if year<1990+skip:
+            continue
+        gammas=array(get_basepath_gamma(year))
+        alphas=array(get_basepath_alpha(year))
+        N.set_alphas(alphas)
+        N.set_gammas(gammas)
+        print "Now calculating for year = ",year
+        N,F,lF = zdcpf(N,coop=0,h0=h0,copper=copper,lapse=10)
+        name = 'gamma_logfit_year_%u_linecap_%s_step_%u' % (year,linecap,step)
+        print name
+        N.save_nodes(name+'_nodes')
+        save('./results/'+name+'_flows',F)
+
 
 def get_balancing_vs_gamma(filename='quant_0.90_gamma'):
     gammas=arange(0,1.01,0.01)
