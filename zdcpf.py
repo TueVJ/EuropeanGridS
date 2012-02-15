@@ -142,13 +142,13 @@ class Nodes:
 
         npzobj = load(path+load_filename)
         
-        for attribute in npzobj.files:
-           for i in arange(len(self)):
-               print self.cache[i],attribute,npzobj[attribute][i]
-               setattr(self.cache[i],attribute,npzobj[attribute][i])
+        # for attribute in npzobj.files:
+        #    for i in arange(len(self)):
+        #        print self.cache[i],attribute,npzobj[attribute][i]
+        #        setattr(self.cache[i],attribute,npzobj[attribute][i])
 
-#        for i in arange(len(self)):
-#            setattr(self.cache[i],'balancing',npzobj['balancing'][i])
+        for i in arange(len(self)):
+            setattr(self.cache[i],'balancing',npzobj['balancing'][i])
 
         npzobj.close()
 
