@@ -131,7 +131,7 @@ def get_balancing_vs_gamma(filename='quant_0.90_gamma'):
     save('./results/Bvsg_'+filename,Bvsg)
     return Bvsg
 
-def plot_balancing_vs_gamma(filenames=['today_linecap_gamma','quant_0.40_gamma','quant_0.90_gamma','copper_gamma'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['line capacities as of today',r'40$\,$% quantile line capacities',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_gamma.png'):
+def plot_balancing_vs_gamma(filenames=['quant_0.40_gamma','today_linecap_gamma','quant_0.90_gamma','copper_gamma'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_gamma.png'):
     figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
     pp = []
@@ -161,12 +161,12 @@ def plot_balancing_vs_gamma(filenames=['today_linecap_gamma','quant_0.40_gamma',
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    #save_figure(picname)
+    save_figure(picname)
 
-'''def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
     figure(fignumber)
     savefig(path + figname, dpi=dpi)
     print 'Saved figure:',path + figname
     sys.stdout.flush()
-'''
+
