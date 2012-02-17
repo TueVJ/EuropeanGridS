@@ -104,7 +104,7 @@ def gamma_logfit(linecap='copper',step=2,start=None):
         N.set_alphas(alphas)
         N.set_gammas(gammas)
         print "Now calculating for year = ",year
-        N,F,lF = zdcpf(N,coop=0,h0=h0,copper=copper,lapse=10)
+        N,F,lF = zdcpf(N,coop=0,h0=h0,copper=copper)
         name = 'gamma_logfit_year_%u_linecap_%s_step_%u' % (year,linecap,step)
         print name
         N.save_nodes(name+'_nodes')
@@ -161,11 +161,12 @@ def plot_balancing_vs_gamma(filenames=['today_linecap_gamma','quant_0.40_gamma',
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    save_figure(picname)
+    #save_figure(picname)
 
-def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+'''def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
     figure(fignumber)
     savefig(path + figname, dpi=dpi)
     print 'Saved figure:',path + figname
     sys.stdout.flush()
+'''

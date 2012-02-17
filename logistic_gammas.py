@@ -154,7 +154,7 @@ def plot_basepath_gamma_alpha(year,gamma,alpha_w,weight,txtlabels=None):
     setp(ltext, fontsize='small')    # the legend text fontsize
     
     #tight_layout(pad=.2)
-    save_figure('plot_basepath_gamma_vs_year.png')
+    #save_figure('plot_basepath_gamma_vs_year.png')
     
     figure(1); clf()
     
@@ -184,7 +184,7 @@ def plot_basepath_gamma_alpha(year,gamma,alpha_w,weight,txtlabels=None):
     setp(ltext, fontsize='small')    # the legend text fontsize
     
     #tight_layout(pad=.2)
-    save_figure('plot_basepath_gamma_vs_gamma_DK.png')
+    #save_figure('plot_basepath_gamma_vs_gamma_DK.png')
 
 def get_logistic_fit(p_year,p_gamma,year0=1980,year=None,plot_on=False,p_historical=None,txtlabel=None,txttitle=None):
     
@@ -240,11 +240,11 @@ def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=N
     setp(ltext, fontsize='small')    # the legend text fontsize
 
     #tight_layout(pad=.2)
-    save_figure('plot_logistic_fit_' + txtlabel + '.png')
+    #save_figure('plot_logistic_fit_' + txtlabel + '.png')
 
-def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+#def #save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
-    figure(fignumber)
-    savefig(path + figname, dpi=dpi)
-    print 'Saved figure:',path + figname
-    sys.stdout.flush()
+    # figure(fignumber)
+    # savefig(path + figname, dpi=dpi)
+    # print 'Saved figure:',path + figname
+    # sys.stdout.flush()

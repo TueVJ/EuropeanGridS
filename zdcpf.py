@@ -353,6 +353,10 @@ def runtimeseries(N,F,P,q,G,h,A,coop,lapse):
     return N,F
 
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):
+    outfile = 'results/linecap_quant_%.2f.npy' % quant
+    if os.path.exists(outfile):
+        hs = np.load(outfile)
+        return hs
     f=np.load(filename)
     flows=[]
     for i in f:
@@ -366,7 +370,8 @@ def get_quant(quant=0.99,filename='results/copper_flows.npy'):
         for j in range(len(a[0])):
             if (a[0][j]>=quant):
                 hs[i]=a[1][j]
-                break 
+                break
+    np.save(outfile,hs)
     return hs
 
 def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
