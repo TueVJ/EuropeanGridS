@@ -71,7 +71,7 @@ def gamma_quant(quant=0.90,start=None):
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
 
-def gamma_logfit(linecap='copper',step=2,start=None):
+def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
     if (linecap == 'copper'):
         copper = 1
         h0 = None
@@ -90,17 +90,21 @@ def gamma_logfit(linecap='copper',step=2,start=None):
     print 'linecap: ',linecap
         
     #generate_basepath_gamma_alpha(step=step)
-    N = Nodes()
     if start != None:
         skip = start
     else:
         skip = 0
+    if stop != None:
+        skip_end = stop
+    else:
+        skip_end=60
     years= arange(1990,2050+1,1)
     for year in years:
-        if year<1990+skip:
+        if (year<1990+skip or year > 1990+stop):
             continue
-        gammas=array(get_basepath_gamma(year))
-        alphas=array(get_basepath_alpha(year))
+        gammas=array(get_basepath_gamma(year,step=step))
+        alphas=array(get_basepath_alpha(year,step=step))
+        N = Nodes()
         N.set_alphas(alphas)
         N.set_gammas(gammas)
         print "Now calculating for year = ",year
@@ -109,6 +113,7 @@ def gamma_logfit(linecap='copper',step=2,start=None):
         print name
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
+        del N
 
 
 def get_balancing_vs_gamma(filename='quant_0.90_gamma'):
@@ -131,7 +136,7 @@ def get_balancing_vs_gamma(filename='quant_0.90_gamma'):
     save('./results/Bvsg_'+filename,Bvsg)
     return Bvsg
 
-def plot_balancing_vs_gamma(filenames=['today_linecap_gamma','quant_0.40_gamma','quant_0.90_gamma','copper_gamma'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['line capacities as of today',r'40$\,$% quantile line capacities',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_gamma.png'):
+def plot_balancing_vs_gamma(filenames=['quant_0.40_gamma','today_linecap_gamma','quant_0.90_gamma','copper_gamma'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_gamma.png'):
     figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
     pp = []
@@ -161,12 +166,99 @@ def plot_balancing_vs_gamma(filenames=['today_linecap_gamma','quant_0.40_gamma',
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    #save_figure(picname)
+    save_figure(picname)
 
-'''def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+
+def get_balancing_vs_year(prefix='gamma_logfit',linecap='copper',step=2):
+    years=arange(1990,2050+1,1)
+    Bvsg=np.zeros((len(years),2))
+    j=0
+    for year in years:
+        Bvsg[j,0]=year
+        load_filename = prefix+('_year_%u' %year)
+        load_filename += '_linecap_'+linecap
+        load_filename += ('_step_%u' % step)+'_nodes.npz'
+        print load_filename
+        N=Nodes(load_filename=load_filename)
+        a=0
+        d=0
+        for i in N:
+            a+=sum(i.balancing)
+            d+=i.mean*i.nhours
+        c=a/d
+        Bvsg[j,1]=c
+        j+=1
+    filename = prefix+'_linecap_'+linecap+('_step_%u' % step)
+    print filename
+    save('./results/Bvsg_'+filename,Bvsg)
+    return Bvsg
+
+def get_gamma_vs_year(step=2):
+    filename = './results/gamma_vs_year_step_%u.npy' % step
+    if os.path.exists(filename):
+        gamma_vs_year = np.load(filename)
+        return gamma_vs_year
+    N = Nodes()
+    weight = []
+    for i in N:
+        weight.append(i.mean)
+    del N
+    gamma_vs_year = []
+    years=arange(1990,2050+1,1)
+    for year in years:
+        gamma=array(get_basepath_gamma(year,step=step))
+        counter = 0.
+        denom = 0.
+        for i in range(len(weight)):
+            counter += weight[i]*gamma[i]
+            denom += weight[i]
+        gamma_vs_year.append(counter/denom)
+        save(filename,gamma_vs_year)
+    return gamma_vs_year
+    
+
+def plot_balancing_vs_year(prefix='gamma_logfit',title_=r"logarithmic growth of $\gamma\,$; final $\alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_gamma_logfit',step=2):
+    figure(1); clf()
+    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
+    pp = []
+    i=0
+    #calculate average gamma as weighted mean of all countries for all years
+    linecaps = ['0.40Q','today','0.90Q','copper']
+    for linecap in linecaps:
+        name = prefix+'_linecap_'+linecap+('_step_%u' % step)
+        fname = './results/Bvsg_'+name+'.npy'
+        print 'Processing '+fname
+        if not os.path.exists(fname):
+            data = get_balancing_vs_year(prefix=prefix,step=step,linecap=linecap)
+        else:
+            data = np.load(fname)
+        pp_x = array(data[:,0])
+        pp_y = array(data[:,1]) # balancing
+        # excess balancing is not so easy here
+        gamma_vs_year= array(get_gamma_vs_year(step=step))
+        pp_y = pp_y - (1.-gamma_vs_year)
+        pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp.extend(pp_)
+        i += 1
+
+    title(title_)
+    axis(xmin=1990,xmax=2050,ymin=0.,ymax=0.3)
+    xlabel('year')
+    ylabel(r'excess balancing/av.h.l. (bal.$ - (1-\gamma)$)')
+
+    pp_label = label
+    leg = legend(pp,pp_label,loc='upper left');
+    ltext  = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+    legend()
+
+    picname = picname + ('_step_%u' %step) + '.png'
+    save_figure(picname)
+
+def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
     figure(fignumber)
     savefig(path + figname, dpi=dpi)
     print 'Saved figure:',path + figname
     sys.stdout.flush()
-'''
+

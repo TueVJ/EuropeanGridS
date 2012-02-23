@@ -2,8 +2,8 @@ from zdcpf import *
 from scipy import optimize as optimize
 
 def sort_to_node_order(arr):
-    '''For some reason, Rolando has a strange node order that does not
-    match the alphabetical I am using. So, I have to convert.'''
+    '''Rolando has his own node order that does not
+    match the one I am using. So, I have to convert.'''
     sortarr = []
     sortarr.append(arr[0])
     sortarr.append(arr[10])
@@ -35,7 +35,8 @@ def sort_to_node_order(arr):
 
     return sortarr
 
-def get_basepath_gamma(year,filename='./results/basepath_gamma.npy'):
+def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2):
+    filename += '_step_%u.npy' % step
 
     print "Loading: {0}. Warning columns not pre-labeled!!".format(filename)
     data = np.load(filename)
@@ -47,7 +48,8 @@ def get_basepath_gamma(year,filename='./results/basepath_gamma.npy'):
     
     return gamma
 
-def get_basepath_alpha(year,filename='./results/basepath_alpha_w.npy'):
+def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2):
+    filename += '_step_%u.npy' % step
 
     print "Loading: {0}. Warning columns not pre-labeled!!".format(filename)
     data = np.load(filename)
@@ -76,9 +78,9 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     'SK-solar', 'SI-wind', 'SI-solar', 'RS-wind', 'RS-solar']
     data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
     
-    p_year = array(data[0][2:-1])
+    p_year = array(data[0][2:-2])
     # print p_year
-    year = arange(amin(p_year),amax(p_year),1)
+    year = arange(amin(p_year),amax(p_year)+1,1)
     
     if plot_on==True:
         p_historical = p_year<=year_hist
@@ -87,21 +89,27 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     
     gamma, alpha_w = [], []
     for i in arange(1,data.shape[0]-1,2):
-        wind = array(data[i][2:-1])
-        solar = array(data[i+1][2:-1])
+        wind = array(data[i][2:-2])
+        solar = array(data[i+1][2:-2])
         if (step == 3):
-            wind[-1] = data[i][-1] # take alternative values for 2050 in step 3
+            wind[-1] = data[i][-2] # take alternative values for 2050 in step 3
+            solar[-1] = data[i+1][-2]
+        elif (step == 4):
+            wind[-1] = data[i][-1] # take alternative values for 2050 in step 4
             solar[-1] = data[i+1][-1]
+        # print 'country: ',txttitles[i]
+        # print 'wind: ',wind
+        # print 'solar: ',solar
 
         if ~all(isnan(wind)):
             i_data = find(~isnan(wind))
-            gamma_wind = get_logistic_fit(p_year[i_data],wind[i_data],year0=year0,year=year,plot_on=plot_on,p_historical=p_historical[i_data],txtlabel=txtlabels[i],txttitle=txttitles[i])
+            gamma_wind = get_logistic_fit(p_year[i_data],wind[i_data],year0=year0,year=year,plot_on=plot_on,p_historical=p_historical[i_data],txtlabel=txtlabels[i],txttitle=txttitles[i],step=step)
         else:
             gamma_wind = zeros(wind.shape)
             
         if ~all(isnan(solar)):
             i_data = find(~isnan(solar))
-            gamma_solar = get_logistic_fit(p_year[i_data],solar[i_data],year=year,plot_on=plot_on,p_historical=p_historical[i_data],txtlabel=txtlabels[i+1],txttitle=txttitles[i+1])
+            gamma_solar = get_logistic_fit(p_year[i_data],solar[i_data],year=year,plot_on=plot_on,p_historical=p_historical[i_data],txtlabel=txtlabels[i+1],txttitle=txttitles[i+1],step=step)
         else:
             gamma_solar = zeros(wind.shape)
 
@@ -112,10 +120,12 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
         weight = array([13672.325571167074,16629.057925672601,2312.6684067162068,1630.6221299198942,18730.927464722623])
         #plot_basepath_gamma_alpha(year,array(gamma),array(alpha_w),weight)
 
-    np.save('./results/basepath_gamma',concatenate([array(year,ndmin=2),array(gamma)]))
-    print 'Saved file: basepath_gamma.npy'
-    np.save('./results/basepath_alpha_w',concatenate([array(year,ndmin=2),array(alpha_w)]))
-    print 'Saved file: basepath_alpha_w.npy'
+    save_filename='basepath_gamma_step_%u' % step
+    np.save('./results/'+save_filename,concatenate([array(year,ndmin=2),array(gamma)]))
+    print 'Saved file: '+save_filename
+    save_filename = 'basepath_alpha_w_step_%u' %step
+    np.save('./results/'+save_filename,concatenate([array(year,ndmin=2),array(alpha_w)]))
+    print 'Saved file: '+save_filename
 
 
 def plot_basepath_gamma_alpha(year,gamma,alpha_w,weight,txtlabels=None):
@@ -186,7 +196,7 @@ def plot_basepath_gamma_alpha(year,gamma,alpha_w,weight,txtlabels=None):
     #tight_layout(pad=.2)
     #save_figure('plot_basepath_gamma_vs_gamma_DK.png')
 
-def get_logistic_fit(p_year,p_gamma,year0=1980,year=None,plot_on=False,p_historical=None,txtlabel=None,txttitle=None):
+def get_logistic_fit(p_year,p_gamma,year0=1980,year=None,plot_on=False,p_historical=None,txtlabel=None,txttitle=None,step=2):
     
     if year==None:
         year = arange(amin(p_year),amax(p_year),1)
@@ -205,12 +215,12 @@ def get_logistic_fit(p_year,p_gamma,year0=1980,year=None,plot_on=False,p_histori
     p_fit, success = optimize.leastsq(errfunc, p_0[:], args=(p_year, p_gamma, p_weight))
 
     if plot_on==True:
-        plot_logistic_fit(year,fitfunc(p_fit,year),p_year,p_gamma,p_historical,txtlabel,txttitle)
+        plot_logistic_fit(year,fitfunc(p_fit,year),p_year,p_gamma,p_historical,txtlabel,txttitle,step=step)
 
     return fitfunc(p_fit,year)
 
 
-def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=None,txttitle=None):
+def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=None,txttitle=None,step=2):
 
     if p_historical==None:
         p_historical = ones(year.shape)
@@ -240,11 +250,11 @@ def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=N
     setp(ltext, fontsize='small')    # the legend text fontsize
 
     #tight_layout(pad=.2)
-    #save_figure('plot_logistic_fit_' + txtlabel + '.png')
+    save_figure('plot_logistic_fit_' + txtlabel + '_step_%u.png' % step)
 
-#def #save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
-    # figure(fignumber)
-    # savefig(path + figname, dpi=dpi)
-    # print 'Saved figure:',path + figname
-    # sys.stdout.flush()
+    figure(fignumber)
+    savefig(path + figname, dpi=dpi)
+    print 'Saved figure:',path + figname
+    sys.stdout.flush()
