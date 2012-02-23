@@ -168,7 +168,6 @@ def plot_balancing_vs_gamma(filenames=['quant_0.40_gamma','today_linecap_gamma',
 
     save_figure(picname)
 
-
 def get_balancing_vs_year(prefix='gamma_logfit',linecap='copper',step=2):
     years=arange(1990,2050+1,1)
     Bvsg=np.zeros((len(years),2))
@@ -255,10 +254,11 @@ def plot_balancing_vs_year(prefix='gamma_logfit',title_=r"logarithmic growth of 
     picname = picname + ('_step_%u' %step) + '.png'
     save_figure(picname)
 
-def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+'''def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
     figure(fignumber)
     savefig(path + figname, dpi=dpi)
     print 'Saved figure:',path + figname
     sys.stdout.flush()
 
+'''
