@@ -1,14 +1,5 @@
 from zdcpf import *
-from pylab import *
-from scipy import *
 import scipy.optimize as optimize
-from numpy import concatenate as conc
-import numpy as np
-from cvxopt import matrix,solvers
-from time import time
-import os
-from copy import deepcopy
-import pickle
 from logistic_gammas import *
 
 def copper_flow():
