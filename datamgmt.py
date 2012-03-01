@@ -445,8 +445,8 @@ def get_optimal_mix_balancing(L, GW, GS, gamma=1., p_interval=0.01, CS=None, ret
 
 
 ######
-# Convinient access to ISET country data.
-# Main function:  get_ISET_country_data()
+# Convenient access to ISET country or region data.
+# Main functions:  get_ISET_country_data(), get_ISET_region_data()
 ###
 
 def get_ISET_country_data(ISO='DK',path='./data/'):
@@ -517,11 +517,82 @@ def get_ISET_country_data(ISO='DK',path='./data/'):
         
     return npzfile['t'], npzfile['L'], npzfile['Gw'], npzfile['Gs'], npzfile['datetime_offset'], npzfile['datalabel']
 
+def get_ISET_region_data(REG='DKW',path='./data/'):
+    """
+    Returns data for a specific region in the ISET data set. 
+    
+    The function retrives/stores data from/in ./data as default. If
+     the data is not available the function 
+     attempts to download it from pepsi. This requires ssh access: 
+     ssh -L5432:localhost:5432 USERNAME@pepsi.imf.au.dk 
+     
+    Filenames are: ISET_region_<name>.npz
+    
+    Returns
+    -------
+    t: array
+        hours numbered from 0 to N-1
+    L: array
+        load in MW
+    Gw: array
+        normalized wind power generation
+    Gs: array
+        normalized solar power generation
+    datetime_offset: scalar
+        num2date(datetime_offset) yields the date and hour of t=0
+    datalabel: string
+        country ISO
+        
+    Example: Returns the West Denmark load, wind and solar power generation
+        t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_region_data('DK_W')
+    
+    """
+    
+    if not valid_REG(REG):
+        sys.exit("Error (44nlksd): No such REG ({0}). For a list of names use get_ISET_region_names().".format(REG))
+    
+    filename = 'ISET_region_' + REG + '.npz'
+    
+    try:
+        #Load the data file if it exists:
+        npzfile = np.load(path + filename)
+        print 'Loaded file: ', path + filename
+        sys.stdout.flush()
+        
+    except IOError:
+        print 'Datafile does not exist:', path + filename
+        print 'Trying to download data from pepsi...'
+        sys.stdout.flush()
+        try: 
+            t, L, GW, GS, datetime_offset, datalabels = get_data_regions(localhost=True);
+        except:
+            sys.exit("Error (sdf4dz1): Could not connect to pepsi. Setup ssh access first: ssh -L5432:localhost:5432 USERNAME@pepsi.imf.au.dk")
+            
+        #Save all country files:
+        for i in arange(len(datalabels)):
+            ISO_ = ISET2ISO_country_codes(datalabels[i])
+            filename_ =  'ISET_country_' + ISO_ + '.npz'
+            np.savez(path + filename_,t=t, L=L[i], Gw=GW[i]/mean(GW[i]), Gs=GS[i]/mean(GS[i]), datetime_offset=datetime_offset, datalabel=ISO_)
+            print 'Saved file: ', path + filename_
+            sys.stdout.flush()
+         
+        #Load the relevant file now that it has been created:       
+        npzfile = np.load(path + filename)
+        print 'Loaded file: ', path + filename
+        sys.stdout.flush()
+        
+    return npzfile['t'], npzfile['L'], npzfile['Gw'], npzfile['Gs'], npzfile['datetime_offset'], npzfile['datalabel']
+
 def valid_ISO(ISO='DK',filename='ISET2ISO_country_codes.npy',path='./settings/'):
 
     table = np.load(path+filename)
     
     return (ISO in table['ISO'])
+
+def valid_REG(REG='DK_W',filename='ISET2ISO_region_codes.npy',path='./settings/'):
+    table = np.load(path+filename)
+
+    return (REG in table['REG'])
     
 def ISO2ISET_country_codes(ISO='DK',filename='ISET2ISO_country_codes.npy',path='./settings/'):
 
