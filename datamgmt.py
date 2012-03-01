@@ -3,6 +3,7 @@
 #  Maximum local integration wind and solar power generation for a region/country.
 #
 #  Created by Gorm Bruun Andresen on 24/11/2011.
+#  Modified by Sarah Becker 01/03/2012
 #  Copyright (c) 2011 Department of Engineering, University of Aarhus. All rights reserved.
 #
 
@@ -517,82 +518,11 @@ def get_ISET_country_data(ISO='DK',path='./data/'):
         
     return npzfile['t'], npzfile['L'], npzfile['Gw'], npzfile['Gs'], npzfile['datetime_offset'], npzfile['datalabel']
 
-def get_ISET_region_data(REG='DKW',path='./data/'):
-    """
-    Returns data for a specific region in the ISET data set. 
-    
-    The function retrives/stores data from/in ./data as default. If
-     the data is not available the function 
-     attempts to download it from pepsi. This requires ssh access: 
-     ssh -L5432:localhost:5432 USERNAME@pepsi.imf.au.dk 
-     
-    Filenames are: ISET_region_<name>.npz
-    
-    Returns
-    -------
-    t: array
-        hours numbered from 0 to N-1
-    L: array
-        load in MW
-    Gw: array
-        normalized wind power generation
-    Gs: array
-        normalized solar power generation
-    datetime_offset: scalar
-        num2date(datetime_offset) yields the date and hour of t=0
-    datalabel: string
-        country ISO
-        
-    Example: Returns the West Denmark load, wind and solar power generation
-        t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_region_data('DK_W')
-    
-    """
-    
-    if not valid_REG(REG):
-        sys.exit("Error (44nlksd): No such REG ({0}). For a list of names use get_ISET_region_names().".format(REG))
-    
-    filename = 'ISET_region_' + REG + '.npz'
-    
-    try:
-        #Load the data file if it exists:
-        npzfile = np.load(path + filename)
-        print 'Loaded file: ', path + filename
-        sys.stdout.flush()
-        
-    except IOError:
-        print 'Datafile does not exist:', path + filename
-        print 'Trying to download data from pepsi...'
-        sys.stdout.flush()
-        try: 
-            t, L, GW, GS, datetime_offset, datalabels = get_data_regions(localhost=True);
-        except:
-            sys.exit("Error (sdf4dz1): Could not connect to pepsi. Setup ssh access first: ssh -L5432:localhost:5432 USERNAME@pepsi.imf.au.dk")
-            
-        #Save all country files:
-        for i in arange(len(datalabels)):
-            ISO_ = ISET2ISO_country_codes(datalabels[i])
-            filename_ =  'ISET_country_' + ISO_ + '.npz'
-            np.savez(path + filename_,t=t, L=L[i], Gw=GW[i]/mean(GW[i]), Gs=GS[i]/mean(GS[i]), datetime_offset=datetime_offset, datalabel=ISO_)
-            print 'Saved file: ', path + filename_
-            sys.stdout.flush()
-         
-        #Load the relevant file now that it has been created:       
-        npzfile = np.load(path + filename)
-        print 'Loaded file: ', path + filename
-        sys.stdout.flush()
-        
-    return npzfile['t'], npzfile['L'], npzfile['Gw'], npzfile['Gs'], npzfile['datetime_offset'], npzfile['datalabel']
-
 def valid_ISO(ISO='DK',filename='ISET2ISO_country_codes.npy',path='./settings/'):
 
     table = np.load(path+filename)
     
     return (ISO in table['ISO'])
-
-def valid_REG(REG='DK_W',filename='ISET2ISO_region_codes.npy',path='./settings/'):
-    table = np.load(path+filename)
-
-    return (REG in table['REG'])
     
 def ISO2ISET_country_codes(ISO='DK',filename='ISET2ISO_country_codes.npy',path='./settings/'):
 
@@ -619,3 +549,190 @@ def get_ISET_country_names(filename='ISET2ISO_country_codes.npy',path='./setting
     for i in arange(len(table)):
         print '{0}\t{1}\t{2}\t{3}'.format(i, table[i]['ISO'], table[i]['ISET'], table[i]['name'])
     sys.stdout.flush()
+
+def save_ISET_country_codes():
+
+	names = ['Austria','Belgium','Bulgaria','Bosnia and Herzegovina','Czech Republic','Switzerland','Germany','Denmark','Spain','France','Finland','Great Britain',\
+		'Greece','Hungary','Italy','Ireland','Croatia','Luxembourg','Norway','Netherlands','Portugal','Poland','Romania','Sweden','Slovakia','Slovenia','Serbia']
+	ISO_codes  = ['AT','BE','BG','BA','CZ','CH','DE','DK','ES','FR','FI','GB','GR','HU','IT','IE','HR','LU','NO','NL','PT','PL','RO','SE','SK','SI','RS']
+	ISET_codes  = ['A','B','BG','BH','CZ','Ch','D','DK','ES','F','FIN','GB','GR','H','I','IRL','Kro','Lux','N','NL','P','PL','Ro','S','SK','SLO','SRB']
+	
+	table = array([empty(len(names))],dtype={'names': ('name', 'ISO', 'ISET'),'formats': ('S30', 'S8', 'S8')})
+	table['name'] = names
+	table['ISO'] = ISO_codes
+	table['ISET'] = ISET_codes
+ 
+	np.save('./settings/ISET2ISO_country_codes2.npy',table[0])
+
+
+##############
+### same again for regions
+
+def get_ISET_region_data(REG='AT',path='./data/'):
+    """
+    Returns data for a specific region in the ISET data set. 
+    
+    The function retrives/stores data from/in ./data as default. If
+     the data is not available the function 
+     attempts to download it from pepsi. This requires ssh access: 
+     ssh -L5432:localhost:5432 USERNAME@pepsi.imf.au.dk 
+     
+    Filenames are: ISET_region_<datalabel>.npz
+    
+    Returns
+    -------
+    t: array
+        hours numbered from 0 to N-1
+    L: array
+        load in MW
+    Gw: array
+        normalized wind power generation
+    Gs: array
+        normalized solar power generation
+    datetime_offset: scalar
+        num2date(datetime_offset) yields the date and hour of t=0
+    datalabel: string
+        region ISO
+        
+    Example: Returns the West Denmark load, wind and solar power generation
+        t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_region_data('DK_W')
+    
+    """
+    
+    if not valid_REG(REG):
+        sys.exit("Error (44nlksd): No such REG ({0}). For a list of names use get_ISET_region_names().".format(REG))
+    
+    filename = 'ISET_region_' + REG + '.npz'
+    
+    try:
+        #Load the data file if it exists:
+        npzfile = np.load(path + filename)
+        print 'Loaded file: ', path + filename
+        sys.stdout.flush()
+        
+    except IOError:
+        print 'Datafile does not exist:', path + filename
+        print 'Trying to download data from pepsi...'
+        sys.stdout.flush()
+        try: 
+            t, L, GW, GS, datetime_offset, datalabels = get_data_regions(localhost=True);
+        except:
+            sys.exit("Error (sdf4dz1): Could not connect to pepsi. Setup ssh access first: ssh -L5432:localhost:5432 USERNAME@pepsi.imf.au.dk")
+            
+        #Save all region files:
+        for i in arange(len(datalabels)):
+            ISO_ = ISET2ISO_region_codes(datalabels[i])
+            filename_ =  'ISET_region_' + ISO_ + '.npz'
+            if (ISO_.endswith('off')):
+                np.savez(path + filename_,t=t,L=None, Gw=GW[i]/mean(GW[i]), Gs=None, datetime_offset=datetime_offset, datalabel=ISO_)
+            else:
+                np.savez(path + filename_,t=t, L=L[i], Gw=GW[i]/mean(GW[i]), Gs=GS[i]/mean(GS[i]), datetime_offset=datetime_offset, datalabel=ISO_)
+            print 'Saved file: ', path + filename_
+            sys.stdout.flush()
+         
+        #Load the relevant file now that it has been created:       
+        npzfile = np.load(path + filename)
+        print 'Loaded file: ', path + filename
+        sys.stdout.flush()
+        
+    return npzfile['t'], npzfile['L'], npzfile['Gw'], npzfile['Gs'], npzfile['datetime_offset'], npzfile['datalabel']
+
+def valid_REG(REG='AT',filename='ISET2ISO_region_codes.npy',path='./settings/'):
+    table = np.load(path+filename)
+
+    return (REG in table['ISO'])
+    
+def ISO2ISET_region_codes(REG='AT',filename='ISET2ISO_region_codes.npy',path='./settings/'):
+
+    table = np.load(path+filename)
+    
+    ISET = table['ISET'][find(table['ISO']==REG)][0]
+    
+    return ISET
+
+def ISET2ISO_region_codes(ISET='AT',filename='ISET2ISO_region_codes.npy',path='./settings/'):
+
+    table = np.load(path+filename)
+    
+    ISO = table['ISO'][find(table['ISET']==ISET)][0]
+    
+    return ISO
+
+def get_ISET_region_names(filename='ISET2ISO_region_codes.npy',path='./settings/'):
+
+    table = np.load(path+filename)
+
+    print 'Index\tISO\t\tISET\t\tName'
+    print '=========================================================================='
+    for i in arange(len(table)):
+        print '{0}\t{1:10s}\t{2:10s}\t{3}'.format(i, table[i]['ISO'], table[i]['ISET'], table[i]['name'])
+    sys.stdout.flush()
+
+def save_ISET_region_codes():
+
+    ISET_codes = ['A', 'B', 'BG', 'BG_off', 'BH_Co', 'BH_Co_off',
+     'B_off', 'CZ', 'Ch', 'DK_O', 'DK_O_off', 'DK_W',
+     'DK_W_off', 'D_EON_M', 'D_EON_N', 'D_EON_S', 'D_EnBW', 'D_N_off',
+     'D_O_off', 'D_RWE', 'D_VET', 'ES_MM_off', 'ES_NAK_off', 'ES_NW',
+     'ES_O', 'ES_S', 'ES_SAK_off', 'FIN_N', 'FIN_N_off', 'FIN_S',
+     'FIN_S_off', 'F_AEK_off', 'F_AK_off', 'F_MM_off', 'F_NO', 'F_NW',
+     'F_SO', 'F_SW', 'GB_N', 'GB_O_off', 'GB_S', 'GB_Sc_off',
+     'GB_W_off', 'GR', 'GR_off', 'H', 'IRL', 'IRL_NI',
+     'IRL_NI_off', 'I_N', 'I_N_off', 'I_S', 'I_S_off', 'I_Sar',
+     'I_Siz', 'Kro', 'Kro_off', 'Lux', 'NL', 'NL_off',
+     'N_M', 'N_N', 'N_S', 'N_S_off', 'PL', 'PL_off',
+     'P_M', 'P_M_off', 'P_N', 'P_N_off', 'P_S', 'P_S_off',
+     'Ro', 'Ro_off', 'SK', 'SLO', 'SRB', 'S_M',
+     'S_M_off', 'S_N', 'S_N_off', 'S_S', 'S_S_off']
+    ISO_codes = ['AT', 'BE', 'BG', 'BG_off', 'BA', 'BA_off',
+     'BE_off', 'CZ', 'CH', 'DK_E', 'DK_E_off', 'DK_W',
+     'DK_W_off', 'DE_M', 'DE_NW', 'DE_SE', 'DE_SW', 'DE_NW_off',
+     'DE_NE_off', 'DE_W', 'DE_NE', 'ES_SE_off', 'ES_NW_off', 'ES_NW',
+     'ES_SE', 'ES_SW', 'ES_SW_off', 'FI_N', 'FI_N_off', 'FI_S',
+     'FI_S_off', 'FR_NW_off', 'FR_SW_off', 'FR_SE_off', 'FR_NE', 'FR_NW',
+     'FR_SE', 'FR_SW', 'GB_N', 'GB_E_off', 'GB_S', 'GB_N_off',
+     'GB_W_off', 'GR', 'GR_off', 'HU', 'IE', 'IE_N',
+     'IE_off', 'IT_N', 'IT_N_off', 'IT_S', 'IT_S_off', 'IT_Sar',
+     'IT_Siz', 'HR', 'HR_off', 'LU', 'NL', 'NL_off',
+     'NO_M', 'NO_N', 'NO_S', 'NO_S_off', 'PL', 'PL_off',
+     'PT_M', 'PT_M_off', 'PT_N', 'PT_N_off', 'PT_S', 'PT_S_off',
+     'RO', 'RO_off', 'SK', 'SI', 'RS', 'SE_M',
+     'SE_M_off', 'SE_N', 'SE_N_off', 'SE_S', 'SE_S_off']
+    names = ['Austria', 'Belgium', 'Bulgaria', 'BG offshore',
+     'Bosnia and Herzegovina, Montenegro and Albania', 'BA offshore',
+     'Belgium offshore', 'Czech Republic', 'Switzerland',
+     'Denmark East', 'Denmark East offshore', 'Denmark West',
+     'Denmark West offshore', 'Germany Middle', 'Germany North West',
+     'Germany South East', 'Germany South West', 'Germany North West offshore',
+     'Germany North East offshore', 'Germany West', 'Germany North East',
+     'Spain South East offshore', 'Spain North West offshore',
+     'Spain North West',
+     'Spain South East', 'Spain South West', 'Spain South West offshore',
+     'Finland North', 'Finland North offshore', 'Finland South',
+     'Finland South offshore', 'France North West offshore',
+     'France South West offshore', 'France South East offshore',
+     'France North East', 'France North West',
+     'France South East', 'France South West', 'Great Britain North',
+     'Great Britain East offshore', 'Great Britain South',
+     'Great Britain North offshore',
+     'Great Britain West offshore', 'Greece', 'Greece offshore',
+     'Hungary', 'Ireland', 'Northern Ireland',
+     'Ireland offshore', 'Italy North', 'Italy North offshore',
+     'Italy South', 'Italy South offshore', 'Italy Sardegna',
+     'Italy Sicily', 'Croatia', 'Croatia offshore',
+     'Luxembourg', 'Netherlands', 'Netherlands offshore',
+     'Norway Middle', 'Norway North', 'Norway South',
+     'Norway South offshore', 'Poland', 'Poland offshore',
+     'Portugal Middle', 'Portugal Middle offshore', 'Portugal North',
+     'Portugal North offshore', 'Portugal South', 'Portugal South offshore',
+     'Romania', 'Romania offshore', 'Slovakia',
+     'Slovenia', 'Serbia', 'Sweden Middle',
+     'Sweden Middle offshore', 'Sweden North', 'Sweden North offshore',
+     'Sweden South', 'Sweden South offshore']
+	
+    table = array([empty(len(names))],dtype={'names': ('name', 'ISO', 'ISET'),'formats': ('S50', 'S10', 'S10')})
+    table['name'] = names
+    table['ISO'] = ISO_codes
+    table['ISET'] = ISET_codes
+ 
+    np.save('./settings/ISET2ISO_region_codes.npy',table[0])
