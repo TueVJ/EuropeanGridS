@@ -153,9 +153,17 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
             alpha_w.append(gamma_wind/(gamma_wind+gamma_solar))
 
     save_filename='basepath_gamma_step_%u' % step
+    if combifit:
+        save_filename += '_combined_fit'
+    else:
+        save_filename += '_separate_fit'
     np.save('./results/'+save_filename,concatenate([array(year,ndmin=2),array(gamma)]))
     print 'Saved file: '+save_filename
     save_filename = 'basepath_alpha_w_step_%u' %step
+    if combifit:
+        save_filename += '_combined_fit'
+    else:
+        save_filename += '_separate_fit'
     np.save('./results/'+save_filename,concatenate([array(year,ndmin=2),array(alpha_w)]))
     print 'Saved file: '+save_filename
 
