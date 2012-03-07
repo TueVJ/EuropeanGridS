@@ -1,6 +1,7 @@
 from zdcpf import *
 from scipy import optimize as optimize
 
+
 def sort_to_node_order(arr):
     '''Rolando has his own node order that does not
     match the one I am using. So, I have to convert.'''
@@ -35,6 +36,7 @@ def sort_to_node_order(arr):
 
     return sortarr
 
+
 def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2):
     filename += '_step_%u.npy' % step
 
@@ -48,6 +50,7 @@ def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2):
     
     return gamma
 
+
 def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2):
     filename += '_step_%u.npy' % step
 
@@ -60,6 +63,7 @@ def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2):
     alpha = sort_to_node_order(Alpha)
 
     return alpha
+
 
 def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,combifit=False,step=2):
 
@@ -155,6 +159,7 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     np.save('./results/'+save_filename,concatenate([array(year,ndmin=2),array(alpha_w)]))
     print 'Saved file: '+save_filename
 
+
 def get_wind_solar_logistic_fit(p_year, p_gamma, p_alpha_w, year0=1980, year=None):
     """Combine targets for both gamma and alpha_w in one fit. Both wind and solar are required to follow a logistic growth."""
 
@@ -193,11 +198,10 @@ def get_logistic_fit(p_year,p_gamma,year0=1980,year=None):
     # fitfunc(p[2])=p[0]
     # p[1]: "slope"
     # |p[3]|=\lim_{x\to\infty} fitfunc(x)
-    errfunc = lambda p, x, y, weight: (fitfunc(p, x) - y)/weight # Distance to the target function
+    errfunc = lambda p, x, y: (fitfunc(p, x) - y) # Distance to the target function
 
-    p_0 = [amin(p_gamma), .01, year0, p_gamma[-1]] # Initial guess for the parameters
-    p_weight = ones(p_year.shape)
-    p_fit, success = optimize.leastsq(errfunc, p_0[:], args=(p_year, p_gamma, p_weight))
+    p_0 = [amin(p_gamma), .1, year0, p_gamma[-1]] # Initial guess for the parameters
+    p_fit, success = optimize.leastsq(errfunc, p_0[:], args=(p_year, p_gamma))
 
     return year, fitfunc(p_fit,year)
 
@@ -226,7 +230,6 @@ def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=N
     xlabel('Reference year')
     ylabel(r'Share of total electricity demand ($\gamma_{\rm '+txtlabel+'}$)')
 
-
     pp = concatenate([pp_hist,pp_target,pp_fit])
     pp_text = ['Historical values','Target values','Logistic fit']
     leg = legend(pp,pp_text,loc='upper left',title=txttitle)
@@ -241,6 +244,7 @@ def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=N
         figname += 'separate'
     figname += ('_step_%u_' % step) + txtlabel + '.png'
     save_figure(figname)
+
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
