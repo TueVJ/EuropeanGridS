@@ -1,9 +1,9 @@
 #
-#  SingleCountry.py
+#  datamgmt.py
 #  Maximum local integration wind and solar power generation for a region/country.
 #
 #  Created by Gorm Bruun Andresen on 24/11/2011.
-#  Modified by Sarah Becker 01/03/2012
+#  Modified by Sarah Becker on 01/03/2012.
 #  Copyright (c) 2011 Department of Engineering, University of Aarhus. All rights reserved.
 #
 
