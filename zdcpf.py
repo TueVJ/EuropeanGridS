@@ -212,8 +212,38 @@ def get_colored_flow(flow, export, incidence_matrix='incidence.txt'):
 
     return array(FF), array(C)   
 
-def dcpowerflow(P,q,G,h,A,b):
-    sol=solvers.qp(P,q,G,h,A,b)
+def dcpowerflow(c,P,q,G,h,A,b):
+    Nnodes=np.size(matrix(A),0)+1
+    #print Nnodes
+    Nlinks=np.size(matrix(P),0)-2*Nnodes
+    #print Nlinks
+    # minimize balancing/curtailment first
+    #print 1
+    sol1=solvers.lp(c,G,h,A,b)
+    #print 2
+    x1=sol1['x']
+    sumbal=sum(x1[Nlinks:Nlinks+Nnodes]) # minimal balancing
+    sumcurt=sum(x1[Nlinks+Nnodes:Nlinks+2*Nnodes]) # minimal curtailment
+    # add condition that balancing/curtailment be minimal to eq constraint
+    b1=concatenate((b,matrix([sumbal,sumcurt])),0)
+    b1=matrix(b1,tc='d')
+    #print b1
+    colind=arange(Nlinks,Nlinks+Nnodes)
+    rowind=ndarray((len(colind),),int)*0
+    #print rowind
+    balones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
+    #print shape(matrix(balones))
+    colind=arange(Nlinks+Nnodes,Nlinks+2*Nnodes)
+    curtones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
+    #for i in range(Nlinks+2*Nnodes):
+    #    print i,balones[i],curtones[i]
+    #print shape(matrix(curtones))
+    #print shape(matrix(A))
+    A1=sparse([A,balones,curtones],tc='d')
+    #print shape(matrix(A))
+    #print shape(matrix(A1))
+    sol=solvers.qp(P,q,G,h,A1,b1)
+    #print 3
     return sol['x']
 
 def AtoKh(N,pathadmat='./settings/admat.txt'):
@@ -305,7 +335,7 @@ def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     G=sparse([G,G3,G5])
     return P,q,G,h,A,K, listFlows
 
-def runtimeseries(N,F,P,q,G,h,A,coop,lapse):
+def runtimeseries(N,F,c,P,q,G,h,A,coop,lapse):
     if lapse==None:
         lapse=Nodes[0].mismatch.shape[0]
     Nlinks=np.size(matrix(F),0)
@@ -337,14 +367,14 @@ def runtimeseries(N,F,P,q,G,h,A,coop,lapse):
         q[Nlinks+Nnodes+2:]=q_r
         if coop==1:
             P[Nlinks+2:Nlinks+Nnodes+2,:]=P_b*L*f*deficit*.99
-        opt=dcpowerflow(P,q,G,h,A,b)   ########### Save relevant solution as flows
+        opt=dcpowerflow(c,P,q,G,h,A,b)   ########### Save relevant solution as flows
         for j in range(Nlinks):
             F[j][t]=opt[j+1]           
         for k in N:              ########### Save balancing at each node
             k.balancing[t]=opt[2+Nlinks+k.id]
             k.curtailment[t]=opt[3+Nlinks+Nnodes+k.id]  
         end=time()
-        if (np.mod(t,547)==0) and t>0:
+        if (np.mod(t,1000)==0) and t>0:
             print "Elapsed time is ",round(end-start)," seconds. t = ",t," out of ",lapse
             sys.stdout.flush()
     end=time()
@@ -398,7 +428,10 @@ def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=No
     G=sparse(G,tc='d')
     h=matrix(h,tc='d')
     A=sparse(A,tc='d')
-    N,F=runtimeseries(N,F,P,q,G,h,A,coop,lapse)
+    c=concatenate((1e-6*np.ones(Nlinks+1),np.ones(2*Nnodes+2)))
+    c=matrix(c,tc='d')
+    #print shape(matrix(G))
+    N,F=runtimeseries(N,F,c,P,q,G,h,A,coop,lapse)
     return N,F, listFlows
 
 ##
