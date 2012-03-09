@@ -1,6 +1,6 @@
 from  zdcpf import *
 
-def compare_all_nodes(name1,name2,N=None,eps=1e-5):
+def compare_all_nodes(name1,name2,N=None,epsrel=1e-5,epsabs=5):
     if N==None:
         N=[]
         for i in [1,2]:
@@ -12,14 +12,10 @@ def compare_all_nodes(name1,name2,N=None,eps=1e-5):
     for i in N[0]:
         for j in N[1]:
             if (i.label == j.label):
-                test = compare_2_nodes(i,j,eps=eps)
-                if (test == -1):
-                    return -1
+                test = compare_2_nodes(i,j,epsrel=epsrel,epsabs=epsabs)
+    del N            
 
-    return 1
-            
-
-def compare_2_nodes(n1,n2,eps=1e-5):
+def compare_2_nodes(n1,n2,epsrel=1e-5,epsabs=5):
     if (n1.label != n2.label):
         print 'Nodes ', n1.label, ' and ', n2.label, 'differ in label!'
         print n1.label , '!=', n2.label
@@ -48,39 +44,37 @@ def compare_2_nodes(n1,n2,eps=1e-5):
         if (n1.load[i] != n2.load[i]):
             print 'Nodes ', n1.label, ' and ', n2.label, 'differ in load at time',i, '!'
             print n1.load[i] , '!=', n2.load[i]
-            return -1
 
     for i in range(n1.nhours):
         if (n1.normwind[i] != n2.normwind[i]):
             print 'Nodes ', n1.label, ' and ', n2.label, 'differ in normwind at time',i, '!'
             print n1.normwind[i] , '!=', n2.normwind[i]
-            return -1
 
     for i in range(n1.nhours):
         if (n1.normsolar[i] != n2.normsolar[i]):
             print 'Nodes ', n1.label, ' and ', n2.label, 'differ in normsolar at time',i, '!'
             print n1.normsolar[i] , '!=', n2.normsolar[i]
-            return -1
 
     for i in range(n1.nhours):
         if (n1.mismatch[i] != n2.mismatch[i]):
             print 'Nodes ', n1.label, ' and ', n2.label, 'differ in mismatch at time',i, '!'
             print n1.mismatch[i] , '!=', n2.mismatch[i]
-            return -1
 
     for i in range(n1.nhours):
-        if (abs(n1.balancing[i] - n2.balancing[i]) >= eps):
+        diff = 2.*abs(n1.balancing[i] - n2.balancing[i])/(n1.balancing[i] + n2.balancing[i])
+        summe=(n1.balancing[i] + n2.balancing[i])
+        if ((diff > epsrel) and (summe > epsabs)):
             print 'Nodes ', n1.label, ' and ', n2.label, 'differ in balancing at time',i, '!'
             print n1.balancing[i] , '!=', n2.balancing[i]
-            return -1
+            print 'Relative difference: ',diff
 
     for i in range(n1.nhours):
-        if (abs(n1.curtailment[i] - n2.curtailment[i]) >= eps):
+        diff = 2*abs(n1.curtailment[i] - n2.curtailment[i])/(n1.curtailment[i] + n2.curtailment[i])
+        summe = n1.curtailment[i] + n2.curtailment[i]
+        if (diff > epsrel and summe > epsabs):
             print 'Nodes ', n1.label, ' and ', n2.label, 'differ in curtailment at time',i, '!'
             print n1.curtailment[i] , '!=', n2.curtailment[i]
-            return -1
-
-    return 1
+            print 'Relative difference: ',diff
 
                         
 

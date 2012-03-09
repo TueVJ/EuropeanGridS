@@ -149,6 +149,7 @@ class Nodes:
 
         for i in arange(len(self)):
             setattr(self.cache[i],'balancing',npzobj['balancing'][i])
+            setattr(self.cache[i],'curtailment',npzobj['curtailment'][i])
 
         npzobj.close()
 
