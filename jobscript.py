@@ -36,7 +36,7 @@ def gamma_today(start=None):
         gamma = i*0.01
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
-        N,F,lF = zdcpf(N,coop=0,copper=0)
+        N,F,lF = zdcpf(N,coop=0,copper=0,lapse=7000)
         name = 'today_linecap_gamma_%.2f' % gamma
         print name
         N.save_nodes(name+'_nodes')

@@ -213,37 +213,35 @@ def get_colored_flow(flow, export, incidence_matrix='incidence.txt'):
     return array(FF), array(C)   
 
 def dcpowerflow(c,P,q,G,h,A,b):
+    eps=1e-2 # small tolerance
     Nnodes=np.size(matrix(A),0)+1
-    #print Nnodes
     Nlinks=np.size(matrix(P),0)-2*Nnodes
-    #print Nlinks
     # minimize balancing/curtailment first
-    #print 1
     sol1=solvers.lp(c,G,h,A,b)
-    #print 2
     x1=sol1['x']
-    sumbal=sum(x1[Nlinks:Nlinks+Nnodes]) # minimal balancing
-    sumcurt=sum(x1[Nlinks+Nnodes:Nlinks+2*Nnodes]) # minimal curtailment
-    # add condition that balancing/curtailment be minimal to eq constraint
-    b1=concatenate((b,matrix([sumbal,sumcurt])),0)
-    b1=matrix(b1,tc='d')
-    #print b1
-    colind=arange(Nlinks,Nlinks+Nnodes)
+    sumbal=sum(x1[Nlinks+1:Nlinks+Nnodes]) # minimal balancing
+    sumcurt=sum(x1[Nlinks+Nnodes+1:Nlinks+2*Nnodes]) # minimal curtailment
+    # add condition that balancing/curtailment be minimal to
+    # inequality constraint (in equality constraint it causes sing. KKT mat.)
+    h1=concatenate((h,matrix([sumbal+eps,sumcurt+eps])),0)
+    h1=matrix(h1,tc='d')
+    colind=arange(Nlinks+1,Nlinks+Nnodes)
     rowind=ndarray((len(colind),),int)*0
-    #print rowind
     balones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
-    #print shape(matrix(balones))
-    colind=arange(Nlinks+Nnodes,Nlinks+2*Nnodes)
+    colind=arange(Nlinks+Nnodes+1,Nlinks+2*Nnodes)
     curtones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
-    #for i in range(Nlinks+2*Nnodes):
-    #    print i,balones[i],curtones[i]
-    #print shape(matrix(curtones))
-    #print shape(matrix(A))
-    A1=sparse([A,balones,curtones],tc='d')
-    #print shape(matrix(A))
-    #print shape(matrix(A1))
-    sol=solvers.qp(P,q,G,h,A1,b1)
-    #print 3
+    G1=sparse([G,balones,curtones],tc='d')
+    x2=zeros(len(x1))
+    for i in range(Nlinks+2*Nnodes):
+        if (i % 3 == 0):
+            x2[i]=1.2*x1[i]
+        elif (i % 3 == 1):
+            x2[i]=0.8*x1[i]
+        else:
+            x2[i]=x1[i]
+    # for i in range(2*Nnodes):
+    #     x2[Nlinks+i]=x1[Nlinks+i]
+    sol=solvers.qp(P,q,G1,h1,A,b)
     return sol['x']
 
 def AtoKh(N,pathadmat='./settings/admat.txt'):
@@ -297,7 +295,7 @@ def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     # The stucture is more or less [ K | -I | I ]
     A1=spmatrix(1.,range(Nnodes),range(Nnodes))
     A=sparse([[K],[-A1],[A1]])
-    # See documentation for why first row is cut
+    # First row is cut so that A is nonsingular (see doc)
     A=A[1:,:]
     # b vector will be defined by the mismatches, in MAIN
     # Finally, the inequality matrix and vector, G and h.
