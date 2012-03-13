@@ -214,8 +214,8 @@ def get_colored_flow(flow, export, incidence_matrix='incidence.txt'):
 
 def dcpowerflow(c,P,q,G,h,A,b):
     eps=1e-2 # small tolerance
-    Nnodes=np.size(matrix(A),0)+1
-    Nlinks=np.size(matrix(P),0)-2*Nnodes
+    Nnodes=np.size(matrix(A),0)+1 # includes dummy node
+    Nlinks=np.size(matrix(P),0)-2*Nnodes # includes dummy link
     # minimize balancing/curtailment first
     sol1=solvers.lp(c,G,h,A,b)
     x1=sol1['x']
@@ -231,7 +231,14 @@ def dcpowerflow(c,P,q,G,h,A,b):
     colind=arange(Nlinks+Nnodes+1,Nlinks+2*Nnodes)
     curtones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
     G1=sparse([G,balones,curtones],tc='d')
-    q1=1.e-6*np.ones(shape(q))
+    P1=P
+    #print P1[Nlinks+2,Nlinks+2]
+    P1[Nlinks+1:,:]=P1[Nlinks+1:,:]*1e0
+    q1=np.zeros(Nlinks+2*Nnodes)
+    q1[Nlinks+1:]=1. # skip the dummy node
+    #print q1[Nlinks]
+    q1[Nlinks+Nnodes]=0. # skip the dummy node
+    q1=2.e1*q1
     q1=matrix(q1,tc='d')
     sol=solvers.qp(P,q1,G1,h1,A,b)
     return sol['x']
@@ -304,7 +311,7 @@ def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     # to model copper plate, we forget about the effect of G matrix on the flows
     if copper == 1:
         G1=spmatrix([1,-1],[0,1],[0,0],(2*Nlinks,Nlinks))
-    # G1 is ready, now we make G2
+   # G1 is ready, now we make G2
     G2=spmatrix([],[],[],(2*Nlinks,2*Nnodes))
     # G3 is built as [ 0 | -I | 0 ]
     G3=spmatrix(-1.,range(Nnodes),range(Nnodes))
