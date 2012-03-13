@@ -231,17 +231,9 @@ def dcpowerflow(c,P,q,G,h,A,b):
     colind=arange(Nlinks+Nnodes+1,Nlinks+2*Nnodes)
     curtones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
     G1=sparse([G,balones,curtones],tc='d')
-    x2=zeros(len(x1))
-    for i in range(Nlinks+2*Nnodes):
-        if (i % 3 == 0):
-            x2[i]=1.2*x1[i]
-        elif (i % 3 == 1):
-            x2[i]=0.8*x1[i]
-        else:
-            x2[i]=x1[i]
-    # for i in range(2*Nnodes):
-    #     x2[Nlinks+i]=x1[Nlinks+i]
-    sol=solvers.qp(P,q,G1,h1,A,b)
+    q1=1.e-6*np.ones(shape(q))
+    q1=matrix(q1,tc='d')
+    sol=solvers.qp(P,q1,G1,h1,A,b)
     return sol['x']
 
 def AtoKh(N,pathadmat='./settings/admat.txt'):
