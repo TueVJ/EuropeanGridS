@@ -345,7 +345,7 @@ def runtimeseries(N,F,P,q,G,h,A,coop,lapse):
             k.balancing[t]=opt[2+Nlinks+k.id]
             k.curtailment[t]=opt[3+Nlinks+Nnodes+k.id]  
         end=time()
-        if (np.mod(t,547)==0) and t>0:
+        if (np.mod(t,1000)==0) and t>0:
             print "Elapsed time is ",round(end-start)," seconds. t = ",t," out of ",lapse
             sys.stdout.flush()
     end=time()
