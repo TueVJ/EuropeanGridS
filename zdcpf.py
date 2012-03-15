@@ -7,6 +7,7 @@ from cvxopt import matrix,solvers,spmatrix,sparse,spdiag
 from time import time
 import sys, os
 from copy import deepcopy
+import ctypes as ct
 
 colors_countries = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers.
 solvers.options['show_progress']=False
@@ -272,13 +273,13 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
                     if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
                     L+=1
     K=spmatrix(K_values,K_row_indices,K_column_indices)
-    rowstring='{'
-    for i in range(len(K_values)):
-        if (K_row_indices[i] == 0 or K_column_indices[i] == 0):
-            continue
-        rowstring += str(K_row_indices[i])+','+str(K_column_indices[i])+' '
-    rowstring += '}'
-    print rowstring
+    # rowstring='{'
+    # for i in range(len(K_values)):
+    #     if (K_row_indices[i] == 0 or K_column_indices[i] == 0):
+    #         continue
+    #     rowstring += str(K_row_indices[i])+','+str(K_column_indices[i])+' '
+    # rowstring += '}'
+    # print rowstring
     return K,h, listFlows               
 
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
@@ -438,7 +439,66 @@ def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=No
     N,F=runtimeseries(N,F,c,P,q,G,h,A,coop,lapse)
     return N,F, listFlows
 
-##
+
+def sdcpf(admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=None):
+    eps=1e-0
+    N=Nodes()
+    firststep=ct.CDLL('./balmin/libbalmin.so')
+    firststep.balmin.restype=ct.c_double # default return type is int
+    secondstep=ct.CDLL('./flowmin/libflowmin.so')
+    secondstep.flowmin.restype=ct.POINTER(ct.c_double)
+
+    if lapse == None:
+        lapse=N[0].nhours
+    kv,H,Lf=AtoKh(N)
+    h_neg=-H[1:88:2]
+    h_pos=H[0:88:2]
+    k=array([float(i) for i in kv])
+    Nlin=44
+    Nnod=27
+    K=k.ctypes.data_as(ct.c_void_p)
+    H_neg=h_neg.ctypes.data_as(ct.c_void_p)
+    H_pos=h_pos.ctypes.data_as(ct.c_void_p)
+
+    start=time()
+    delta=np.zeros(Nnod)
+
+    start=time()
+    for t in range(lapse):
+        for i in N:
+            delta[i.id]=i.mismatch[t]
+        Delta=delta.ctypes.data_as(ct.c_void_p)
+        MinBal=firststep.balmin(Delta,K,H_neg,H_pos)#.data_as(ct.c_double)
+        #print "MinBal is ", MinBal
+        minbal=ct.c_double(MinBal+eps)
+        MinFlow=secondstep.flowmin(Delta,K,H_neg,H_pos,minbal)
+        minflows=np.zeros(len(N))
+        for i in range(len(N)):
+            minflows[i]=MinFlow[i]
+        #print "MinFlows are "
+        #print minflows
+        end=time()
+        if (np.mod(t,1000)==0) and t>0:
+            print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
+            sys.stdout.flush()
+    end=time()
+    print "Calculation took %3.1f seconds." % (end-start)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#######################################################
+# END OF CODE
+#######################################################
 def Case_A(betas=[0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.125,0.15,0.175,0.20,0.25,0.3,0.35,0.40,0.45,0.5,0.75,0.85,0.90]):
     '''Applying a fraction b of the 99Q optimal'''    
     N=Nodes()
@@ -575,58 +635,3 @@ def Plot_D():
     save('./results/PlotD',PlotD)
     return PlotD
 
-#h99=get_quant()
-#hopt=get_quant(0.9999999)
-#N=Nodes()
-#K,h1,L=AtoKh(N)
-#ha=h1[2:88]
-
-#N=Nodes(load_filename="Case_A_Beta_0.4.npz")
-#K,h2,L=AtoKh(N)
-#hdob=h99*.4
-
-#for i in range(size(L,0)):
-#    print L[i][0]+' & '+str(round(hopt[2*i]/1000,2)) +' & ' +str(round(h99[2*i]/1000,2)) +' & '+ str(round(hdob[2*i]/1000,2)) + ' & ' +str(round(ha[2*i]/1000,2)) +' \\\\'
-#    print '$\\blacktriangleleft$--- & '+ str(round(hopt[2*i+1]/1000,2)) +' & ' +str(round(h99[2*i+1]/1000,2)) +' & ' + str(round(hdob[2*i+1]/1000,2)) + ' & ' + str(round(ha[2*i+1]/1000,2)) +' \\\\'
-#ha[82]=0
-#print 'total capacity  ' + str(round(sum(biggestpair(hopt))/1000,2)) + ' & ' + str(round(sum(biggestpair(h99))/1000,2)) + ' & ' + str(round(sum(biggestpair(hdob))/1000,2)) + ' & ' + str(round(sum(biggestpair(ha))/1000,2)) 
-
-
-
-
-#Case_A(betas=[1.4,1.5,2.0,3.0,4.0,5.0])
-#Case_D(quants=[0.91,0.92,0.93,0.94,0.95,0.96,0.97,0.98,1.0])
-#Case_B(links=np.arange(16000.0,30000.1,1000.0))
-#Plot_A()
-#Plot_B()
-#Plot_C()
-#Plot_D()
-
-# plota=load('./results/PlotA.npy')
-# plotb=load('./results/PlotB.npy')
-# plotc=load('./results/PlotC.npy')
-# plotd=load('./results/PlotD.npy')
-
-# ax=subplot(1,1,1)
-# p1,=ax.plot(plota[:,0],plota[:,1],label='case A')
-# p2,=ax.plot(plotb[:,0],plotb[:,1],label='case B')
-# p3,=ax.plot(plotc[:,0],plotc[:,1],label='case C')
-# p4,=ax.plot(plotd[:,0],plotd[:,1],label='case D')
-# handles,labels=ax.get_legend_handles_labels()
-# ax.legend(handles,labels)
-# show()
-
-#N=Nodes()
-#K,H,lF=AtoKh(N)
-#h=H[2:88]
-#h0 = get_quant(.99)
-#print '99% Quantiles for European Connections'
-#print 'Link          Quant          Actual           Ratio'
-#for i in range(len(lF)):
-#	print lF[i][0] , '      ' , round(h0[2*i]) ,'     ' ,h[2*i] , '        ' , round(h[2*i]/h0[2*i],2)
-#	print '               ',round(h0[2*i+1])  ,'     ',h[2*i+1] ,'         ', round(h[2*i+1]/h0[2*i+1],2)
-
-# N = Nodes()
-# N,F,lF = zdcpf(N,coop=0,copper=1)
-# N.save_nodes('copper_nodes')
-#save('./results/'+'copper_flows',F)

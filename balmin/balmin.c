@@ -29,7 +29,7 @@ double balmin(double delta[N], double k[L*2], double hmns[L],
   settings.verbose = 0;
   num_iters = solve();
   if (work.converged != 1)
-    printf("Balancing minimization failed to converge!");
+    printf("Balancing minimization failed to converge!\n");
 
   return work.optval;
 }
