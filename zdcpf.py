@@ -272,6 +272,13 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
                     if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
                     L+=1
     K=spmatrix(K_values,K_row_indices,K_column_indices)
+    rowstring='{'
+    for i in range(len(K_values)):
+        if (K_row_indices[i] == 0 or K_column_indices[i] == 0):
+            continue
+        rowstring += str(K_row_indices[i])+','+str(K_column_indices[i])+' '
+    rowstring += '}'
+    print rowstring
     return K,h, listFlows               
 
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
