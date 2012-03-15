@@ -156,5 +156,6 @@ void reset_rand(void);
 /* Function definitions in /home/jem/olsr/releases/20110330074202/lib/olsr.extra/qp_solver/testsolver.c: */
 int main(int argc, char **argv);
 void load_default_data(void);
+void load_data(double *);
 
 #endif

@@ -16,7 +16,9 @@ OPT=-Os
 
 # libmath is needed for sqrt. can remove in final product.
 LDLIBS = -lm
-CFLAGS = $(OPT) $(INCLUDES)
+CFLAGS = $(OPT) $(INCLUDES) -fpic
+LIBFLAGS = -shared -WI,-soname
+OBJS = solver.o matrix_support.o ldl.o balmin.o util.o
 CC = gcc
 
 .PHONY: all
@@ -36,3 +38,9 @@ testsolver.o: solver.h
 .PHONY : clean
 clean :
 	-rm -f *.o testsolver
+
+.PHONY: lib
+lib: libbalmin.so
+
+libbalmin.so: $(OBJS)
+	$(CC) $(CFLAGS) $(LIBFLAGS),libbalmin.so.1 -o libbalmin.so $(OBJS)
