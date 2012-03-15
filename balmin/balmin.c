@@ -23,12 +23,12 @@ double balmin(double input[44*4+27]) {
   load_data(input);
 
   /* Solve problem instance for the record. */
-  settings.verbose = 1;
+  settings.verbose = 0;
   num_iters = solve();
   if (work.converged != 1)
     printf("balmin failed to converge!");
 
-  return 0;
+  return work.optval;
 }
 
 void load_default_data(void) {

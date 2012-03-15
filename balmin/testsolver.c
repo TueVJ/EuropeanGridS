@@ -13,7 +13,7 @@ Vars vars;
 Params params;
 Workspace work;
 Settings settings;
-#define NUMTESTS 0
+#define NUMTESTS 10
 
 int main(int argc, char **argv) {
   int num_iters;
@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
   /* Solve problem instance for the record. */
   settings.verbose = 1;
   num_iters = solve();
+  printf("work.optval = %f\n",work.optval);
 
 #ifndef ZERO_LIBRARY_MODE
 #if (NUMTESTS > 0)
