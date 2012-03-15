@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2012-03-15 05:13:46 -0700.  */
+/* Produced by CVXGEN, 2012-03-15 08:24:15 -0700.  */
 /* CVXGEN is Copyright (C) 2006-2011 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2011 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -15,12 +15,13 @@ Vars vars;
 Params params;
 Workspace work;
 Settings settings;
+#define NUMTESTS 0
 
-double balmin(double input[44*4+27]) {
+double *flowmin(double input[44*4+27], double bmin) {
   int num_iters;
   set_defaults();
   setup_indexing();
-  load_data(input);
+  load_data(input,bmin);
 
   /* Solve problem instance for the record. */
   settings.verbose = 0;
@@ -28,7 +29,7 @@ double balmin(double input[44*4+27]) {
   if (work.converged != 1)
     printf("balmin failed to converge!");
 
-  return work.optval;
+  return vars.F;
 }
 
 void load_default_data(void) {
@@ -147,97 +148,98 @@ void load_default_data(void) {
   params.K[85] = -1.12805692636259;
   params.K[86] = -1.29114647679271;
   params.K[87] = -1.70550532312257;
-  params.h_mns[0] = 1.56957275034837;
-  params.h_mns[1] = 0.560706467596236;
-  params.h_mns[2] = -1.42667073011471;
-  params.h_mns[3] = -0.343492321135171;
-  params.h_mns[4] = -1.80356430240851;
-  params.h_mns[5] = -1.16250660191055;
-  params.h_mns[6] = 0.922832496516153;
-  params.h_mns[7] = 0.604491081766398;
-  params.h_mns[8] = -0.0840868104920891;
-  params.h_mns[9] = -0.900877978017443;
-  params.h_mns[10] = 0.608892500264739;
-  params.h_mns[11] = 1.82579804526952;
-  params.h_mns[12] = -0.257917775299229;
-  params.h_mns[13] = -1.71946997964932;
-  params.h_mns[14] = -1.76907404870813;
-  params.h_mns[15] = -1.66851592480977;
-  params.h_mns[16] = 1.83882874901288;
-  params.h_mns[17] = 0.163043344745975;
-  params.h_mns[18] = 1.34984973067889;
-  params.h_mns[19] = -1.31986582305146;
-  params.h_mns[20] = -0.958619709084339;
-  params.h_mns[21] = 0.767910047491371;
-  params.h_mns[22] = 1.58228131256793;
-  params.h_mns[23] = -0.637246062159362;
-  params.h_mns[24] = -1.74130720803887;
-  params.h_mns[25] = 1.45647867764258;
-  params.h_mns[26] = -0.836510216682096;
-  params.h_mns[27] = 0.96432962559825;
-  params.h_mns[28] = -1.36786538119402;
-  params.h_mns[29] = 0.779853740563504;
-  params.h_mns[30] = 1.36567847612459;
-  params.h_mns[31] = 0.908608314986837;
-  params.h_mns[32] = -0.563569900546034;
-  params.h_mns[33] = 0.906759005960792;
-  params.h_mns[34] = -1.44213150327016;
-  params.h_mns[35] = -0.744723539067112;
-  params.h_mns[36] = -0.321668973268222;
-  params.h_mns[37] = 1.50884815577727;
-  params.h_mns[38] = -1.38503916571543;
-  params.h_mns[39] = 1.52049916099726;
-  params.h_mns[40] = 1.19585727688322;
-  params.h_mns[41] = 1.88649718831192;
-  params.h_mns[42] = -0.529188066786158;
-  params.h_mns[43] = -1.18024092436888;
-  params.h_pls[0] = -1.0377187186616;
-  params.h_pls[1] = 1.31145120568568;
-  params.h_pls[2] = 1.86091259437566;
-  params.h_pls[3] = 0.795239993521694;
-  params.h_pls[4] = -0.0700118329046804;
-  params.h_pls[5] = -0.851800941275469;
-  params.h_pls[6] = 1.33475153737264;
-  params.h_pls[7] = 1.4887180335977;
-  params.h_pls[8] = -1.63147363279763;
-  params.h_pls[9] = -1.13620211592089;
-  params.h_pls[10] = 1.32704436183147;
-  params.h_pls[11] = 1.39321558831798;
-  params.h_pls[12] = -0.741388004944011;
-  params.h_pls[13] = -0.882821612612575;
-  params.h_pls[14] = -0.27673991192616;
-  params.h_pls[15] = 0.157786001058667;
-  params.h_pls[16] = -1.61773273997355;
-  params.h_pls[17] = 1.34764855485446;
-  params.h_pls[18] = 0.138939481405284;
-  params.h_pls[19] = 1.09987126016369;
-  params.h_pls[20] = -1.07665493769469;
-  params.h_pls[21] = 1.86117340442546;
-  params.h_pls[22] = 1.00410922927352;
-  params.h_pls[23] = -0.627624542432154;
-  params.h_pls[24] = 1.79411058783982;
-  params.h_pls[25] = 0.802047115865091;
-  params.h_pls[26] = 1.36224434194495;
-  params.h_pls[27] = -1.81801077657652;
-  params.h_pls[28] = -1.77743383579325;
-  params.h_pls[29] = 0.970949094198515;
-  params.h_pls[30] = -0.781254268206432;
-  params.h_pls[31] = 0.0671374633729811;
-  params.h_pls[32] = -1.37495030531491;
-  params.h_pls[33] = 1.91180963862794;
-  params.h_pls[34] = 0.0110041906976779;
-  params.h_pls[35] = 1.3160043138989;
-  params.h_pls[36] = -1.70384881488001;
-  params.h_pls[37] = -0.0843381911286474;
-  params.h_pls[38] = -1.7508820783769;
-  params.h_pls[39] = 1.53696572435095;
-  params.h_pls[40] = -0.216759285148165;
-  params.h_pls[41] = -1.72580032695265;
-  params.h_pls[42] = -1.69401487073617;
-  params.h_pls[43] = 0.15517063201268;
+  params.B_min[0] = 1.56957275034837;
+  params.h_mns[0] = 0.560706467596236;
+  params.h_mns[1] = -1.42667073011471;
+  params.h_mns[2] = -0.343492321135171;
+  params.h_mns[3] = -1.80356430240851;
+  params.h_mns[4] = -1.16250660191055;
+  params.h_mns[5] = 0.922832496516153;
+  params.h_mns[6] = 0.604491081766398;
+  params.h_mns[7] = -0.0840868104920891;
+  params.h_mns[8] = -0.900877978017443;
+  params.h_mns[9] = 0.608892500264739;
+  params.h_mns[10] = 1.82579804526952;
+  params.h_mns[11] = -0.257917775299229;
+  params.h_mns[12] = -1.71946997964932;
+  params.h_mns[13] = -1.76907404870813;
+  params.h_mns[14] = -1.66851592480977;
+  params.h_mns[15] = 1.83882874901288;
+  params.h_mns[16] = 0.163043344745975;
+  params.h_mns[17] = 1.34984973067889;
+  params.h_mns[18] = -1.31986582305146;
+  params.h_mns[19] = -0.958619709084339;
+  params.h_mns[20] = 0.767910047491371;
+  params.h_mns[21] = 1.58228131256793;
+  params.h_mns[22] = -0.637246062159362;
+  params.h_mns[23] = -1.74130720803887;
+  params.h_mns[24] = 1.45647867764258;
+  params.h_mns[25] = -0.836510216682096;
+  params.h_mns[26] = 0.96432962559825;
+  params.h_mns[27] = -1.36786538119402;
+  params.h_mns[28] = 0.779853740563504;
+  params.h_mns[29] = 1.36567847612459;
+  params.h_mns[30] = 0.908608314986837;
+  params.h_mns[31] = -0.563569900546034;
+  params.h_mns[32] = 0.906759005960792;
+  params.h_mns[33] = -1.44213150327016;
+  params.h_mns[34] = -0.744723539067112;
+  params.h_mns[35] = -0.321668973268222;
+  params.h_mns[36] = 1.50884815577727;
+  params.h_mns[37] = -1.38503916571543;
+  params.h_mns[38] = 1.52049916099726;
+  params.h_mns[39] = 1.19585727688322;
+  params.h_mns[40] = 1.88649718831192;
+  params.h_mns[41] = -0.529188066786158;
+  params.h_mns[42] = -1.18024092436888;
+  params.h_mns[43] = -1.0377187186616;
+  params.h_pls[0] = 1.31145120568568;
+  params.h_pls[1] = 1.86091259437566;
+  params.h_pls[2] = 0.795239993521694;
+  params.h_pls[3] = -0.0700118329046804;
+  params.h_pls[4] = -0.851800941275469;
+  params.h_pls[5] = 1.33475153737264;
+  params.h_pls[6] = 1.4887180335977;
+  params.h_pls[7] = -1.63147363279763;
+  params.h_pls[8] = -1.13620211592089;
+  params.h_pls[9] = 1.32704436183147;
+  params.h_pls[10] = 1.39321558831798;
+  params.h_pls[11] = -0.741388004944011;
+  params.h_pls[12] = -0.882821612612575;
+  params.h_pls[13] = -0.27673991192616;
+  params.h_pls[14] = 0.157786001058667;
+  params.h_pls[15] = -1.61773273997355;
+  params.h_pls[16] = 1.34764855485446;
+  params.h_pls[17] = 0.138939481405284;
+  params.h_pls[18] = 1.09987126016369;
+  params.h_pls[19] = -1.07665493769469;
+  params.h_pls[20] = 1.86117340442546;
+  params.h_pls[21] = 1.00410922927352;
+  params.h_pls[22] = -0.627624542432154;
+  params.h_pls[23] = 1.79411058783982;
+  params.h_pls[24] = 0.802047115865091;
+  params.h_pls[25] = 1.36224434194495;
+  params.h_pls[26] = -1.81801077657652;
+  params.h_pls[27] = -1.77743383579325;
+  params.h_pls[28] = 0.970949094198515;
+  params.h_pls[29] = -0.781254268206432;
+  params.h_pls[30] = 0.0671374633729811;
+  params.h_pls[31] = -1.37495030531491;
+  params.h_pls[32] = 1.91180963862794;
+  params.h_pls[33] = 0.0110041906976779;
+  params.h_pls[34] = 1.3160043138989;
+  params.h_pls[35] = -1.70384881488001;
+  params.h_pls[36] = -0.0843381911286474;
+  params.h_pls[37] = -1.7508820783769;
+  params.h_pls[38] = 1.53696572435095;
+  params.h_pls[39] = -0.216759285148165;
+  params.h_pls[40] = -1.72580032695265;
+  params.h_pls[41] = -1.69401487073617;
+  params.h_pls[42] = 0.15517063201268;
+  params.h_pls[43] = -1.69773438197908;
 }
 
-void load_data(double data[44*4+27]) {
+void load_data(double data[44*4+27], double bmin) {
   params.Delta[0] = data[0];
   params.Delta[1] = data[1];
   params.Delta[2] = data[2];
@@ -441,4 +443,5 @@ void load_data(double data[44*4+27]) {
   params.h_pls[41] = data[200];
   params.h_pls[42] = data[201];
   params.h_pls[43] = data[202];
+  params.B_min[0] = bmin;
 }

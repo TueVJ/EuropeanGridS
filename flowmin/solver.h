@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2012-03-15 05:13:45 -0700.  */
+/* Produced by CVXGEN, 2012-03-15 08:24:13 -0700.  */
 /* CVXGEN is Copyright (C) 2006-2011 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2011 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -36,39 +36,40 @@
 typedef struct Params_t {
   double Delta[27];
   double K[88];
+  double B_min[1];
   double h_mns[44];
   double h_pls[44];
 
 } Params;
 
 typedef struct Vars_t {
-  double *t_01; /* 27 rows. */
   double *F; /* 44 rows. */
+  double *t_01; /* 27 rows. */
 
 } Vars;
 
 typedef struct Workspace_t {
-  double h[142];
-  double s_inv[142];
-  double s_inv_z[142];
+  double h[143];
+  double s_inv[143];
+  double s_inv_z[143];
   double *b;
 
   double q[71];
-  double rhs[355];
-  double x[355];
+  double rhs[357];
+  double x[357];
   double *s;
   double *z;
   double *y;
-  double lhs_aff[355];
-  double lhs_cc[355];
-  double buffer[355];
-  double buffer2[355];
+  double lhs_aff[357];
+  double lhs_cc[357];
+  double buffer[357];
+  double buffer2[357];
 
-  double KKT[656];
-  double L[448];
-  double d[355];
-  double v[355];
-  double d_inv[355];
+  double KKT[730];
+  double L[482];
+  double d[357];
+  double v[357];
+  double d_inv[357];
 
   double gap;
   double optval;
@@ -156,6 +157,6 @@ void reset_rand(void);
 /* Function definitions in /home/jem/olsr/releases/20110330074202/lib/olsr.extra/qp_solver/testsolver.c: */
 int main(int argc, char **argv);
 void load_default_data(void);
-void load_data(double arr[44*4+27]);
+void load_data(double arr[44*4+27], double Bmin);
 
 #endif
