@@ -280,7 +280,7 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
     #     rowstring += str(K_row_indices[i])+','+str(K_column_indices[i])+' '
     # rowstring += '}'
     # print rowstring
-    return K,h, listFlows               
+    return K_values,h, listFlows               
 
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     K,h, listFlows=AtoKh(N,path+admat)
@@ -451,17 +451,18 @@ def sdcpf(admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=Non
     if lapse == None:
         lapse=N[0].nhours
     kv,H,Lf=AtoKh(N)
+    kv=kv[2:]
     h_neg=-H[1:88:2]
     h_pos=H[0:88:2]
     k=array([float(i) for i in kv])
-    Nlin=44
-    Nnod=27
+    Nlinks=44
+    Nnodes=27
     K=k.ctypes.data_as(ct.c_void_p)
     H_neg=h_neg.ctypes.data_as(ct.c_void_p)
     H_pos=h_pos.ctypes.data_as(ct.c_void_p)
 
     start=time()
-    delta=np.zeros(Nnod)
+    delta=np.zeros(Nnodes)
 
     start=time()
     for t in range(lapse):
@@ -472,8 +473,8 @@ def sdcpf(admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=Non
         #print "MinBal is ", MinBal
         minbal=ct.c_double(MinBal+eps)
         MinFlow=secondstep.flowmin(Delta,K,H_neg,H_pos,minbal)
-        minflows=np.zeros(len(N))
-        for i in range(len(N)):
+        minflows=np.zeros(Nlinks)
+        for i in range(Nlinks):
             minflows[i]=MinFlow[i]
         #print "MinFlows are "
         #print minflows
