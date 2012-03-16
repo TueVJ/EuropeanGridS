@@ -18,8 +18,8 @@ Settings settings;
 int N = 27; // number of nodes
 int L = 44; // number of links
 
-double *flowmin(double delta[N], double k[L*2], double hmns[L],
-  double hpls[L], double bmin) {
+int flowmin(double delta[N], double k[L*2], double hmns[L],
+		double hpls[L], double bmin, double flow[L]) {
   int num_iters;
   set_defaults();
   setup_indexing();
@@ -31,7 +31,10 @@ double *flowmin(double delta[N], double k[L*2], double hmns[L],
   if (work.converged != 1)
     printf("Flow minimization failed to converge!\n");
 
-  return vars.F;
+  int i=0;
+  for (i=0; i<L; i++)
+    flow[i]=vars.F[i]; // return flow by reference
+  return 0;
 }
 
 void load_data(double delta[N], double k[L*2], double hmns[L],

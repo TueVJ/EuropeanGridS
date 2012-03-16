@@ -6,58 +6,46 @@ def copper_flow():
     N = Nodes()
     N.set_alphas(0.7)
     N.set_gammas(1.0)
-    N,F,lF = zdcpf(N,coop=0,copper=1)
+    N,F = sdcpf(N,copper=1)
     N.save_nodes('copper_nodes')
     save('./results/'+'copper_flows',F)
 
-def gamma_copper():
+def gamma_homogeneous(linecap='copper',start=None,stop=None):
+    if (linecap == 'copper'):
+        copper = 1
+        h0 = None
+    elif (linecap == '0.40Q'):
+        h0 = get_quant(0.40)
+        copper = 0
+    elif (linecap == '0.90Q'):
+        h0 = get_quant(0.90)
+        copper = 0
+    elif (linecap == 'today'):
+        h0 = None
+        copper = 0
+    else:
+        print 'invalid linecap. abort'
+        return
+    print 'linecap: ',linecap
+
+    if start != None:
+        skip = start
+    else:
+        skip = 0
+    if stop != None:
+        skip_end = stop
+    else:
+        skip_end=101
+
     N = Nodes()
     N.set_alphas(0.7)
-    for i in range(101):
-        gamma = i*0.01
+    gvals= arange(skip,skip_end,1)
+    for gval in gvals:
+        gamma = gval*0.01
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
-        N,F,lF = zdcpf(N,coop=0,copper=1)
+        N,F = sdcpf(N,copper=copper,h0=h0)
         name = 'copper_gamma_%.2f' % gamma
-        print name
-        N.save_nodes(name+'_nodes')
-        save('./results/'+name+'_flows',F)
-
-def gamma_today(start=None):
-    N = Nodes()
-    N.set_alphas(0.7)
-    if start != None:
-        skip = start
-    else:
-        skip = 0
-    for i in range(101):
-        if (i < skip):
-            continue
-        gamma = i*0.01
-        print "Now calculating for gamma = ",gamma
-        N.set_gammas(gamma)
-        N,F,lF = zdcpf(N,coop=0,copper=0)
-        name = 'today_linecap_gamma_%.2f' % gamma
-        print name
-        N.save_nodes(name+'_nodes')
-        save('./results/'+name+'_flows',F)
-
-def gamma_quant(quant=0.90,start=None):
-    h0=get_quant(quant)
-    N = Nodes()
-    N.set_alphas(0.7)
-    if start != None:
-        skip = start
-    else:
-        skip = 0
-    for i in range(101):
-        if (i < skip):
-            continue
-        gamma = i*0.01
-        print "Now calculating for gamma = ",gamma
-        N.set_gammas(gamma)
-        N,F,lF = zdcpf(N,coop=0,h0=h0)
-        name = 'quant_%.2f_gamma_%.2f' % (quant,gamma)
         print name
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
@@ -99,7 +87,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         N.set_alphas(alphas)
         N.set_gammas(gammas)
         print "Now calculating for year = ",year
-        N,F,lF = zdcpf(N,coop=0,h0=h0,copper=copper)
+        N,F = sdcpf(N,coop=0,h0=h0,copper=copper)
         name = 'gamma_logfit_year_%u_linecap_%s_step_%u' % (year,linecap,step)
         print name
         N.save_nodes(name+'_nodes')

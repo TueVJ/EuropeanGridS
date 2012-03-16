@@ -21,6 +21,7 @@ int L = 44; // number of links
 double balmin(double delta[N], double k[L*2], double hmns[L],
   double hpls[L]) {
   int num_iters;
+  printf("%f, %f\n",hmns[5],hpls[5]);
   set_defaults();
   setup_indexing();
   //settings.eps=1.e-2;

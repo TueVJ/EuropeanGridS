@@ -277,7 +277,7 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
     #     rowstring += str(K_row_indices[i]+1)+','+str(K_column_indices[i]+1)+' '
     # rowstring += '}'
     # print rowstring
-    return K_values,h, listFlows               
+    return K,K_values,h, listFlows               
 
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     K,h, listFlows=AtoKh(N,path+admat)
@@ -384,6 +384,89 @@ def runtimeseries(N,F,c,P,q,G,h,A,coop,lapse):
     print "Calculation took ",round(end-start)," seconds."
     return N,F
 
+def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=None,h0=None):
+    if lapse == None:
+        lapse=N[0].nhours
+    P,q,G,h,A,K, listFlows = generatemat(N,admat,b,path,copper,h0)
+    Nnodes=np.size(matrix(K),0)-1
+    Nlinks=np.size(matrix(K),1)-1
+    F=np.zeros((Nlinks,lapse))
+    P=sparse(P,tc='d')
+    q=matrix(q,tc='d')
+    G=sparse(G,tc='d')
+    h=matrix(h,tc='d')
+    A=sparse(A,tc='d')
+    c=concatenate((1e-6*np.ones(Nlinks+1),np.ones(2*Nnodes+2)))
+    c=matrix(c,tc='d')
+    #print shape(matrix(G))
+    N,F=runtimeseries(N,F,c,P,q,G,h,A,coop,lapse)
+    return N,F, listFlows
+
+def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=None):
+    Nlinks=44
+    Nnodes=27
+    firststep=ct.CDLL('./balmin/libbalmin.so')
+    firststep.balmin.restype=ct.c_double # default return type is int
+    secondstep=ct.CDLL('./flowmin/libflowmin.so')
+    secondstep.flowmin.restype=ct.c_int # just for fun
+
+    if lapse == None:
+        lapse=N[0].nhours
+    km,kv,H,Lf=AtoKh(N) # dummy node has been deleted from admat.txt!!!
+    km = np.matrix(matrix(km))
+    if (h0 != None):
+        H=h0
+    h_neg=-H[1:88:2]
+    h_pos=H[0:88:2]
+    if (copper == 1):
+        h_neg=-1.e6*np.ones(Nlinks)
+        h_pos=1.e6*np.ones(Nlinks)
+    flw=np.zeros(Nlinks)
+    k=array([float(i) for i in kv])
+    K=k.ctypes.data_as(ct.c_void_p)
+    H_neg=h_neg.ctypes.data_as(ct.c_void_p)
+    H_pos=h_pos.ctypes.data_as(ct.c_void_p)
+    Flw=flw.ctypes.data_as(ct.POINTER(ct.c_double)) # for return by ref
+
+    delta=np.zeros(Nnodes)
+
+    F=np.zeros((Nlinks,lapse))
+    deltas=np.zeros((Nnodes,lapse))
+    eps=1e-1
+    start=time()
+    for t in range(lapse):
+        for i in N:
+            delta[i.id]=i.mismatch[t]
+        deltas[:,t]=delta
+        Delta=delta.ctypes.data_as(ct.c_void_p)
+        MinBal=firststep.balmin(Delta,K,H_neg,H_pos)
+        print "MinBal is ", MinBal
+        minbal=ct.c_double(MinBal+eps)
+        dummy=secondstep.flowmin(Delta,K,H_neg,H_pos,minbal,Flw)
+        for i in range(Nlinks):
+            F[i,t]=Flw[i]
+        # print "MinFlows are "
+        # print F[:,t]
+        end=time()
+        if (np.mod(t,2073)==0) and t>0:
+            print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
+            sys.stdout.flush()
+    end=time()
+    print "Calculation took %3.1f seconds." % (end-start)
+    start=time()
+    for t in range(lapse):
+        tmp=np.array(F[:,t])
+        tmp2=np.array(deltas[:,t])
+        tmp3=transpose(tmp2-dot(km,tmp))
+        balancing=[-tmp3[i,0] if tmp3[i,0]<0 else 0. for i in range(len(tmp3))]
+        curtailment=[tmp3[i,0] if tmp3[i,0]>0 else 0. for i in range(len(tmp3))]
+        for i in N:
+            i.balancing[t] = balancing[i.id]
+            i.curtailment[t] = curtailment[i.id]
+    end=time()
+    print "Balancing and curtailment took %3.1f seconds." % (end-start)
+    return N,F
+
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):
     outfile = 'results/linecap_quant_%.2f.npy' % quant
     if os.path.exists(outfile):
@@ -417,66 +500,3 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
 #    b=hist(flows[link+1],bins=b,range=[flows[link+1].min(),-0.1],normed=1,histtype='stepfilled')
     a=hist(flows[link],bins=b,normed=1,histtype='stepfilled')
     show()
-
-def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=None,h0=None):
-    if lapse == None:
-        lapse=N[0].nhours
-    P,q,G,h,A,K, listFlows = generatemat(N,admat,b,path,copper,h0)
-    Nnodes=np.size(matrix(K),0)-1
-    Nlinks=np.size(matrix(K),1)-1
-    F=np.zeros((Nlinks,lapse))
-    P=sparse(P,tc='d')
-    q=matrix(q,tc='d')
-    G=sparse(G,tc='d')
-    h=matrix(h,tc='d')
-    A=sparse(A,tc='d')
-    c=concatenate((1e-6*np.ones(Nlinks+1),np.ones(2*Nnodes+2)))
-    c=matrix(c,tc='d')
-    #print shape(matrix(G))
-    N,F=runtimeseries(N,F,c,P,q,G,h,A,coop,lapse)
-    return N,F, listFlows
-
-def sdcpf(admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=None):
-    eps=1e-1
-    N=Nodes()
-    firststep=ct.CDLL('./balmin/libbalmin.so')
-    firststep.balmin.restype=ct.c_double # default return type is int
-    secondstep=ct.CDLL('./flowmin/libflowmin.so')
-    secondstep.flowmin.restype=ct.POINTER(ct.c_double)
-
-    if lapse == None:
-        lapse=N[0].nhours
-    kv,H,Lf=AtoKh(N) # dummy node has been deleted from admat.txt!!!
-    h_neg=-H[1:88:2]
-    h_pos=H[0:88:2]
-    k=array([float(i) for i in kv])
-    Nlinks=44
-    Nnodes=27
-    K=k.ctypes.data_as(ct.c_void_p)
-    H_neg=h_neg.ctypes.data_as(ct.c_void_p)
-    H_pos=h_pos.ctypes.data_as(ct.c_void_p)
-
-    delta=np.zeros(Nnodes)
-
-    start=time()
-    for t in range(lapse):
-        for i in N:
-            delta[i.id]=i.mismatch[t]
-        Delta=delta.ctypes.data_as(ct.c_void_p)
-        MinBal=firststep.balmin(Delta,K,H_neg,H_pos)
-        #print "MinBal is ", MinBal
-        minbal=ct.c_double(MinBal+eps)
-        MinFlow=secondstep.flowmin(Delta,K,H_neg,H_pos,minbal)
-        minflows=np.zeros(Nlinks)
-        for i in range(Nlinks):
-            minflows[i]=MinFlow[i]
-        #print "MinFlows are "
-        #print minflows
-        end=time()
-        if (np.mod(t,2000)==0) and t>0:
-            print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
-            sys.stdout.flush()
-    end=time()
-    print "Calculation took %3.1f seconds." % (end-start)
-
-
