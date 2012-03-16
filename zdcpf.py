@@ -451,7 +451,7 @@ def sdcpf(admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=Non
     if lapse == None:
         lapse=N[0].nhours
     kv,H,Lf=AtoKh(N)
-    kv=kv[2:]
+    #kv=kv[2:]
     h_neg=-H[1:88:2]
     h_pos=H[0:88:2]
     k=array([float(i) for i in kv])

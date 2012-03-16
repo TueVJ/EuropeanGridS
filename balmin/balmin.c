@@ -23,10 +23,14 @@ double balmin(double delta[N], double k[L*2], double hmns[L],
   int num_iters;
   set_defaults();
   setup_indexing();
+  //settings.eps=1.e-2;
+  //settings.resid_tol=1.e-2;
+  //settings.max_iters=100;
+  //settings.kkt_reg=1.e-3;
   load_data(delta, k, hmns, hpls);
 
   /* Solve problem instance for the record. */
-  settings.verbose = 0;
+  settings.verbose = 1;
   num_iters = solve();
   if (work.converged != 1)
     printf("Balancing minimization failed to converge!\n");
