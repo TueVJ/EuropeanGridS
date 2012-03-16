@@ -44,8 +44,7 @@ class node:
         
     def get_export(self):	
         """Returns export power time series in units of MW."""
-        #return get_positive(self.mismatch) - self.curtailment + get_positive(self.balancing - get_positive(-self.mismatch))
-        return get_positive(self.mismatch) - self.curtailment	    
+        return get_positive(self.mismatch) - self.curtailment + get_positive(self.balancing - get_positive(-self.mismatch))
 
     def get_localRES(self):
         """Returns the local use of RES power time series in units of MW."""
@@ -439,9 +438,8 @@ def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=No
     N,F=runtimeseries(N,F,c,P,q,G,h,A,coop,lapse)
     return N,F, listFlows
 
-
 def sdcpf(admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=None):
-    eps=1e-0
+    eps=1e-1
     N=Nodes()
     firststep=ct.CDLL('./balmin/libbalmin.so')
     firststep.balmin.restype=ct.c_double # default return type is int
@@ -461,7 +459,6 @@ def sdcpf(admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=Non
     H_neg=h_neg.ctypes.data_as(ct.c_void_p)
     H_pos=h_pos.ctypes.data_as(ct.c_void_p)
 
-    start=time()
     delta=np.zeros(Nnodes)
 
     start=time()

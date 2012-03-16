@@ -30,7 +30,7 @@ double balmin(double delta[N], double k[L*2], double hmns[L],
   load_data(delta, k, hmns, hpls);
 
   /* Solve problem instance for the record. */
-  settings.verbose = 1;
+  settings.verbose = 0;
   num_iters = solve();
   if (work.converged != 1)
     printf("Balancing minimization failed to converge!\n");
