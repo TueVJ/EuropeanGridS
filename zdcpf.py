@@ -462,7 +462,6 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
         print "Calculation took %3.1f seconds." % (end-start)
         sys.stdout.flush()
     else: # use special unbounded C-fctns for unbounded copper flow
-        print 'in copper alternative'
         for t in range(lapse):
             for i in N:
                 delta[i.id]=i.mismatch[t]

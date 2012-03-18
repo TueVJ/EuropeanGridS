@@ -37,8 +37,14 @@ def sort_to_node_order(arr):
     return sortarr
 
 
-def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2):
-    filename += '_step_%u.npy' % step
+def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2,combifit=True):
+    '''Return basepath gamma for year year and the basepath specified by
+    filename, step, and combifit.'''
+    filename += '_step_%u' % step
+    if (combifit):
+        filename += '_combined_fit.npy'
+    else:
+        filename += '_separate_fit.npy'
 
     print "Loading: {0}. Warning columns not pre-labeled!!".format(filename)
     data = np.load(filename)
@@ -51,8 +57,14 @@ def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2):
     return gamma
 
 
-def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2):
-    filename += '_step_%u.npy' % step
+def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2,combifit=True):
+    '''Return basepath alpha for year year and the basepath specified by
+    filename, step, and combifit.'''
+    filename += '_step_%u' % step
+    if (combifit):
+        filename += '_combined_fit.npy'
+    else:
+        filename += '_separate_fit.npy'
 
     print "Loading: {0}. Warning columns not pre-labeled!!".format(filename)
     data = np.load(filename)
@@ -65,7 +77,7 @@ def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2):
     return alpha
 
 
-def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,combifit=False,step=2):
+def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,combifit=True,step=2):
 
     print "Loading: {0}. Warning columns not pre-labeled!!".format(txtfile)
     txttitles = ['Year', 'Austria (wind)', 'Austria (solar)', 'Belgium (wind)', 'Belgium (solar)','Bulgaria (wind)','Bulgaria (solar)','Bosnia and Herzegovina (wind)','Bosnia and Herzegovina (solar)', 'Czech Republic (wind)', 'Czech Republic (solar)', 'Switzerland (wind)', 'Switzerland (solar)', 'Germany (wind)', 'Germany (solar)', 'Denmark (wind)', 'Denmark (solar)', 'Spain (wind)', 'Spain (solar)', 'France (wind)', 'France (solar)', 'Finland (wind)', 'Finland (solar)', 'Great Britain (wind)', 'Great Britain (solar)', 'Greece (wind)', 'Greece (solar)', 'Hungary (wind)', 'Hungary (solar)', 'Italy (wind)', 'Italy (solar)', 'Ireland (wind)', 'Ireland (solar)', 'Croatia (wind)', 'Croatia (solar)', 'Luxembourg (wind)', 'Luxembourg (solar)', 'Norway (wind)', 'Norway (solar)', 'Netherlands (wind)', 'Netherlands (solar)', 'Portugal (wind)', 'Portugal (solar)', 'Poland (wind)', 'Poland (solar)', 'Romania (wind)', 'Romania (solar)', 'Sweden (wind)', 'Sweden (solar)', 'Slovakia (wind)', 'Slovakia (solar)', 'Slovenia (wind)', 'Slovenia (solar)', 'Serbia (wind)', 'Serbia (solar)']
@@ -107,7 +119,7 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
         # print 'wind: ',wind
         # print 'solar: ',solar
 
-        if (combifit):
+        if (combifit and txtlabels[i] != 'ES-wind'): # ES is messed up in combifit, so resort to separate fit in this case
             i_data_w = find(~isnan(wind))
             i_data_s = find(~isnan(solar))
             i_data_ws = []

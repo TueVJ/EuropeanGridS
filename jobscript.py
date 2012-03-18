@@ -45,7 +45,7 @@ def gamma_homogeneous(linecap='copper',start=None,stop=None):
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
         N,F = sdcpf(N,copper=copper,h0=h0)
-        name = 'copper_gamma_%.2f' % gamma
+        name = ('homogeneous_gamma_%.2f' % gamma)+'_linecap_'+linecap
         print name
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
@@ -79,7 +79,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         skip_end=60
     years= arange(1990,2050+1,1)
     for year in years:
-        if (year<1990+skip or year > 1990+stop):
+        if (year<1990+skip or year > 1990+skip_end):
             continue
         gammas=array(get_basepath_gamma(year,step=step))
         alphas=array(get_basepath_alpha(year,step=step))
@@ -87,8 +87,8 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         N.set_alphas(alphas)
         N.set_gammas(gammas)
         print "Now calculating for year = ",year
-        N,F = sdcpf(N,coop=0,h0=h0,copper=copper)
-        name = 'gamma_logfit_year_%u_linecap_%s_step_%u' % (year,linecap,step)
+        N,F = sdcpf(N,h0=h0,copper=copper)
+        name = 'logfit_gamma_year_%u_linecap_%s_step_%u' % (year,linecap,step)
         print name
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
@@ -147,7 +147,7 @@ def plot_balancing_vs_gamma(filenames=['quant_0.40_gamma','today_linecap_gamma',
 
     save_figure(picname)
 
-def get_balancing_vs_year(prefix='gamma_logfit',linecap='copper',step=2):
+def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
     years=arange(1990,2050+1,1)
     Bvsg=np.zeros((len(years),2))
     j=0
