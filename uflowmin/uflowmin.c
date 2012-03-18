@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2012-03-15 05:13:46 -0700.  */
+/* Produced by CVXGEN, 2012-03-18 11:07:47 -0700.  */
 /* CVXGEN is Copyright (C) 2006-2011 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2011 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -18,36 +18,29 @@ Settings settings;
 int N = 27; // number of nodes
 int L = 44; // number of links
 
-double balmin(double delta[N], double k[L*2], double hmns[L],
-  double hpls[L]) {
+int uflowmin(double delta[N], double k[L*2], double bmin, double flow[L]) {
   int num_iters;
-  //printf("%f, %f\n",hmns[5],hpls[5]);
+
   set_defaults();
   setup_indexing();
-  //settings.eps=1.e-2;
-  //settings.resid_tol=1.e-2;
-  //settings.max_iters=100;
-  //settings.kkt_reg=1.e-3;
-  load_data(delta, k, hmns, hpls);
+  load_data(delta, k, bmin);
 
-  /* Solve problem instance for the record. */
   settings.verbose = 0;
   num_iters = solve();
   if (work.converged != 1)
-    printf("Balancing minimization failed to converge!\n");
+    printf("Flow minimization failed to converge!\n");
 
-  return work.optval;
+  int i=0;
+  for (i=0; i<L; i++)
+    flow[i]=vars.F[i]; // return flow by reference
+  return 0;
 }
 
-void load_data(double delta[N], double k[L*2], double hmns[L],
-  double hpls[L]) {
+void load_data(double delta[N], double k[L*2], double bmin) {
   int i;
   for (i=0; i<N; i++)
     params.Delta[i] = delta[i];
   for (i=0; i<2*L; i++)
     params.K[i] = k[i];
-  for (i=0; i<L; i++)
-    params.h_mns[i] = hmns[i];
-  for (i=0; i<L; i++)
-    params.h_pls[i] = hpls[i];
+  params.B_min[0] = bmin;
 }

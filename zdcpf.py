@@ -407,8 +407,12 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     Nnodes=27
     firststep=ct.CDLL('./balmin/libbalmin.so')
     firststep.balmin.restype=ct.c_double # default return type is int
+    ufirststep=ct.CDLL('./ubalmin/libubalmin.so')
+    ufirststep.ubalmin.restype=ct.c_double # default return type is int
     secondstep=ct.CDLL('./flowmin/libflowmin.so')
     secondstep.flowmin.restype=ct.c_int # just for fun
+    usecondstep=ct.CDLL('./uflowmin/libuflowmin.so')
+    usecondstep.uflowmin.restype=ct.c_int # just for fun
 
     if lapse == None:
         lapse=N[0].nhours
@@ -418,9 +422,11 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
         H=h0
     h_neg=-H[1:88:2]
     h_pos=H[0:88:2]
+    #print 'h_pos: ',shape(h_neg),h_neg
     if (copper == 1):
         h_neg=-1.e6*np.ones(Nlinks)
         h_pos=1.e6*np.ones(Nlinks)
+    #print 'h_pos: ',shape(h_neg),h_neg
     flw=np.zeros(Nlinks)
     k=array([float(i) for i in kv])
     K=k.ctypes.data_as(ct.c_void_p)
@@ -430,30 +436,56 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
 
     delta=np.zeros(Nnodes)
 
-    F=np.zeros((Nlinks,lapse))
+    F=np.zeros((Nlinks,lapse)) # save flows and deltas to calc bal and curt later
     deltas=np.zeros((Nnodes,lapse))
     eps=1e-1
     start=time()
-    for t in range(lapse):
-        for i in N:
-            delta[i.id]=i.mismatch[t]
-        deltas[:,t]=delta
-        Delta=delta.ctypes.data_as(ct.c_void_p)
-        MinBal=firststep.balmin(Delta,K,H_neg,H_pos)
-        print "MinBal is ", MinBal
-        minbal=ct.c_double(MinBal+eps)
-        dummy=secondstep.flowmin(Delta,K,H_neg,H_pos,minbal,Flw)
-        for i in range(Nlinks):
-            F[i,t]=Flw[i]
-        # print "MinFlows are "
-        # print F[:,t]
+    if (copper == 0):
+        for t in range(lapse):
+            for i in N:
+                delta[i.id]=i.mismatch[t]
+            deltas[:,t]=delta
+            Delta=delta.ctypes.data_as(ct.c_void_p)
+            MinBal=firststep.balmin(Delta,K,H_neg,H_pos)
+            # print "MinBal is ", MinBal
+            minbal=ct.c_double(MinBal+eps)
+            dummy=secondstep.flowmin(Delta,K,H_neg,H_pos,minbal,Flw)
+            for i in range(Nlinks):
+                F[i,t]=Flw[i]
+            # print "MinFlows are "
+            # print F[:,t]
+            end=time()
+            if (np.mod(t,2073)==0) and t>0:
+                 print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
+                 sys.stdout.flush()
         end=time()
-        if (np.mod(t,2073)==0) and t>0:
-            print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
-            sys.stdout.flush()
-    end=time()
-    print "Calculation took %3.1f seconds." % (end-start)
-    start=time()
+        print "Calculation took %3.1f seconds." % (end-start)
+        sys.stdout.flush()
+    else: # use special unbounded C-fctns for unbounded copper flow
+        print 'in copper alternative'
+        for t in range(lapse):
+            for i in N:
+                delta[i.id]=i.mismatch[t]
+            deltas[:,t]=delta
+            Delta=delta.ctypes.data_as(ct.c_void_p)
+            MinBal=ufirststep.ubalmin(Delta,K)
+            # print "MinBal is ", MinBal
+            minbal=ct.c_double(MinBal+eps)
+            dummy=usecondstep.uflowmin(Delta,K,minbal,Flw)
+            for i in range(Nlinks):
+                F[i,t]=Flw[i]
+            # print "MinFlows are "
+            # print F[:,t]
+            end=time()
+            if (np.mod(t,2073)==0) and t>0:
+                print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
+                sys.stdout.flush()
+        end=time()
+        print "Calculation took %3.1f seconds." % (end-start)
+        sys.stdout.flush()
+
+    # no matter how the flows were obtained, we still have to calc bal and curt
+    start2=time()
     for t in range(lapse):
         tmp=np.array(F[:,t])
         tmp2=np.array(deltas[:,t])
@@ -464,7 +496,8 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
             i.balancing[t] = balancing[i.id]
             i.curtailment[t] = curtailment[i.id]
     end=time()
-    print "Balancing and curtailment took %3.1f seconds." % (end-start)
+    print "Assigning balancing and curtailment took %3.1f seconds." % (end-start2)
+    print "Complete calculation took %3.1f seconds." % (end-start)
     return N,F
 
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):

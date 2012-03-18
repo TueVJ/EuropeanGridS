@@ -37,7 +37,7 @@ testsolver.o: solver.h
 
 .PHONY : clean
 clean :
-	-rm -f *.o testsolver
+	-rm -f *.o testsolver *.so
 
 .PHONY: lib
 lib: libflowmin.so

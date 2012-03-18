@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2012-03-15 05:13:45 -0700.
+# Produced by CVXGEN, 2012-03-18 10:53:47 -0700.
 # CVXGEN is Copyright (C) 2006-2011 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2011 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -18,7 +18,7 @@ OPT=-Os
 LDLIBS = -lm
 CFLAGS = $(OPT) $(INCLUDES) -fpic
 LIBFLAGS = -shared -WI,-soname
-OBJS = solver.o matrix_support.o ldl.o balmin.o util.o
+OBJS = solver.o matrix_support.o ldl.o ubalmin.o util.o
 CC = gcc
 
 .PHONY: all
@@ -37,10 +37,10 @@ testsolver.o: solver.h
 
 .PHONY : clean
 clean :
-	-rm -f *.o *.so testsolver 
+	-rm -f *.o *.so testsolver
 
 .PHONY: lib
-lib: libbalmin.so
+lib: libubalmin.so
 
-libbalmin.so: $(OBJS)
-	$(CC) $(CFLAGS) $(LIBFLAGS),libbalmin.so.1 -o libbalmin.so $(OBJS)
+libubalmin.so: $(OBJS)
+	$(CC) $(CFLAGS) $(LIBFLAGS),libubalmin.so.1 -o libubalmin.so $(OBJS)
