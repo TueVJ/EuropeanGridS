@@ -10,7 +10,7 @@ def copper_flow():
     N.save_nodes('copper_nodes')
     save('./results/'+'copper_flows',F)
 
-def gamma_homogeneous(linecap='copper',start=None,stop=None):
+def gamma_homogenous(linecap='copper',start=None,stop=None):
     if (linecap == 'copper'):
         copper = 1
         h0 = None
@@ -45,7 +45,7 @@ def gamma_homogeneous(linecap='copper',start=None,stop=None):
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
         N,F = sdcpf(N,copper=copper,h0=h0)
-        name = ('homogeneous_gamma_%.2f' % gamma)+'_linecap_'+linecap
+        name = ('homogenous_gamma_%.2f' % gamma)+'_linecap_'+linecap
         print name
         N.save_nodes(name+'_nodes')
         save('./results/'+name+'_flows',F)
@@ -95,13 +95,13 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def get_balancing_vs_gamma(filename='quant_0.90_gamma'):
+def get_balancing_vs_gamma(prefix='homogenous_gamma',linecap='copper'):
     gammas=arange(0,1.01,0.01)
     Bvsg=np.zeros((len(gammas),2))
     j=0
     for gamma in gammas:
         Bvsg[j,0]=gamma
-        load_filename=(filename+'_%.2f_nodes.npz' % gamma)
+        load_filename=(prefix+'_%.2f_linecap_%s_nodes.npz' % (gamma,linecap))
         print load_filename
         N=Nodes(load_filename=load_filename)
         a=0
@@ -112,6 +112,7 @@ def get_balancing_vs_gamma(filename='quant_0.90_gamma'):
         c=a/d
         Bvsg[j,1]=c
         j+=1
+    filename=prefix+('_linecap_%s' % linecap)
     save('./results/Bvsg_'+filename,Bvsg)
     return Bvsg
 
