@@ -263,12 +263,12 @@ def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=N
     else:
         figname += 'separate'
     figname += ('_step_%u_' % step) + txtlabel + '.png'
-#     save_figure(figname)
+    save_figure(figname)
 
 
-# def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
-#     figure(fignumber)
-#     savefig(path + figname, dpi=dpi)
-#     print 'Saved figure:',path + figname
-#     sys.stdout.flush()
+    figure(fignumber)
+    savefig(path + figname, dpi=dpi)
+    print 'Saved figure:',path + figname
+    sys.stdout.flush()
