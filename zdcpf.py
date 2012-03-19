@@ -137,6 +137,27 @@ class Nodes:
         print 'Saved nodes to file: ', path+filename
         sys.stdout.flush()
         
+    def save_nodes_small(self,filename,path='./results/'):
+        """Saves the non-redundant contents of a Nodes instance to a npz file."""
+        
+        attribute = dir(self[0])
+        save_str = []
+        #Determine which attributes to be saved
+        for attribute in dir(self[0]):
+            if attribute[0]=='_':
+                continue
+            if (attribute=='load' or attribute=='normwind' or attribute=='normsolar' or attribute=='mismatch'):
+                continue
+            elif is_numlike(getattr(self[0],attribute)) or is_string_like(getattr(self[0],attribute)):
+                print attribute
+                save_str.append(attribute + '=' + 'array([self[i].'+attribute+' for i in arange(len(self))])')
+
+        #Write save file
+        eval('savez(path+filename,'+','.join(save_str)+')')
+
+        print 'Saved nodes to file: ', path+filename
+        sys.stdout.flush()
+        
     def _load_nodes_(self,load_filename,path='./results/'):
         """Loads a Nodes instance from an npz file."""
 
