@@ -261,8 +261,8 @@ def plot_balancing_vs_year(prefix='gamma_logfit',title_=r"logarithmic growth of 
     save_figure(picname)
 
 def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',step=2):
-    filename=path+'Fvsg_'+prefix+('_linecap_%s_step_%u' % (linecap,step))
-    if os.path.exists(filename+'.npy'):
+    filename=path+'Fvsg_'+prefix+('_linecap_%s_step_%u.npy' % (linecap,step))
+    if os.path.exists(filename):
         Fvsg=np.load(filename)
         return Fvsg
     years=arange(1990,2050+1,1)
