@@ -19,8 +19,8 @@ class node:
     def __init__(self,path,fileName,ID):
         self.id = ID
         data = load(path + fileName)
-        self.gamma = 1.0#float(setup[ID][0])
-        self.alpha = 0.725#float(setup[ID][1])  #Alpha should be expanded to a vector.  completalpha() can be applied in update()
+        self.gamma = 1.0
+        self.alpha = 0.7
         self.load = 1000*array(map(double,data['L']))
         self.nhours = len(self.load)
         self.normwind = array(map(double,data['Gw']))
@@ -138,7 +138,8 @@ class Nodes:
         sys.stdout.flush()
         
     def save_nodes_small(self,filename,path='./results/'):
-        """Saves the non-redundant contents of a Nodes instance to a npz file."""
+        """Saves the non-redundant contents of a Nodes instance to a
+        npz file. A little less convenient, but much smaller."""
         
         attribute = dir(self[0])
         save_str = []
@@ -146,7 +147,7 @@ class Nodes:
         for attribute in dir(self[0]):
             if attribute[0]=='_':
                 continue
-            if (attribute=='load' or attribute=='normwind' or attribute=='normsolar' or attribute=='mismatch'):
+            if (attribute=='load' or attribute=='normwind' or attribute=='normsolar' or attribute=='mismatch' or attribute=='gen'):
                 continue
             elif is_numlike(getattr(self[0],attribute)) or is_string_like(getattr(self[0],attribute)):
                 print attribute

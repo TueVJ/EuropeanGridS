@@ -190,15 +190,15 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
         else:
             data = np.load(path+fname)
         pp_x = array(data[:,0])
-        pp_y = array(data[:,1]) # balancing
+        pp_y = array(data[:,1])/1.e9
         pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
         i += 1
 
     title(title_)
-    axis(xmin=0,xmax=1,ymin=-0.05e9,ymax=5.e9)
+    axis(xmin=0,xmax=1,ymin=-0.05,ymax=5)
     xlabel('share $\gamma$ of VRES in total electricity production')
-    ylabel(r'sum of absolute flows')
+    ylabel(r'sum of absolute flows/$10^9\,$MW')
 
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left');
@@ -333,15 +333,15 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
         else:
             data = np.load(path+fname)
         pp_x = array(data[:,0])
-        pp_y = array(data[:,1]) # flows
+        pp_y = array(data[:,1])/1.e9
         pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
         i += 1
 
     title(title_)
-    axis(xmin=1990,xmax=2050,ymin=-0.05e9,ymax=5.e9)
+    axis(xmin=1990,xmax=2050,ymin=-0.05,ymax=5.)
     xlabel('year')
-    ylabel(r'sum of absolute flows')
+    ylabel(r'sum of absolute flows/$10^9\,$MW')
 
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left');
