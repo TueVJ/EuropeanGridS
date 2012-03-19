@@ -148,6 +148,32 @@ def plot_balancing_vs_gamma(filenames=['quant_0.40_gamma','today_linecap_gamma',
 
     save_figure(picname)
 
+def get_flows_vs_gamma(prefix='homogenous_gamma',path='./results/',linecap='copper'):
+    filename=path+'Fvsg_'+prefix+('_linecap_%s' % linecap)
+    if os.path.exists(filename+'.npy'):
+        Fvsg=np.load(filename)
+        return Fvsg
+    gammas=arange(0,1.01,0.01)
+    Fvsg=np.zeros((len(gammas),3))
+    j=0
+    for gamma in gammas:
+        Fvsg[j,0]=gamma
+        load_filename=(prefix+'_%.2f_linecap_%s_flows.npy' % (gamma,linecap))
+        print load_filename
+        flows=np.load(path+load_filename)
+        a=0.
+        b=0.
+        d=0.
+        for i in flows:
+            a+=sum(abs(i))
+            b+=sum(i*i)
+        print "Absolute flows %.4e, squared flows %.4e" % (a,b)
+        Fvsg[j,1]=a
+        Fvsg[j,2]=b
+        j+=1
+    save(filename,Fvsg)
+    return Fvsg
+    
 def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
     years=arange(1990,2050+1,1)
     Bvsg=np.zeros((len(years),2))
@@ -233,6 +259,31 @@ def plot_balancing_vs_year(prefix='gamma_logfit',title_=r"logarithmic growth of 
 
     picname = picname + ('_step_%u' %step) + '.png'
     save_figure(picname)
+
+def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',step=2):
+    filename=path+'Fvsg_'+prefix+('_linecap_%s_step_%u' % (linecap,step))
+    if os.path.exists(filename+'.npy'):
+        Fvsg=np.load(filename)
+        return Fvsg
+    years=arange(1990,2050+1,1)
+    Fvsg=np.zeros((len(years),3))
+    j=0
+    for year in years:
+        Fvsg[j,0]=year
+        load_filename=(prefix+'_year_%u_linecap_%s_step_%u_flows.npy' % (year,linecap,step))
+        print load_filename
+        flows=np.load(path+load_filename)
+        a=0.
+        b=0.
+        for i in flows:
+            a+=sum(abs(i))
+            b+=sum(i*i)
+        print "Absolute flows %.4e, squared flows %.4e" % (a,b)
+        Fvsg[j,1]=a
+        Fvsg[j,2]=b
+        j+=1
+    save(filename,Fvsg)
+    return Fvsg
 
 '''def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
