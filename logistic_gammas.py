@@ -1,41 +1,11 @@
 from zdcpf import *
 from scipy import optimize as optimize
+from Database_v2 import *
 
 
-def sort_to_node_order(arr):
-    '''Rolando has his own node order that does not
-    match the one I am using here. So, I have to convert.'''
-    sortarr = []
-    sortarr.append(arr[0])
-    sortarr.append(arr[10])
-    sortarr.append(arr[19])
-    sortarr.append(arr[3])
-    sortarr.append(arr[9])
-    sortarr.append(arr[18])
-    sortarr.append(arr[1])
-    sortarr.append(arr[11])
-    sortarr.append(arr[21])
-    sortarr.append(arr[2])
-    sortarr.append(arr[12])
-    sortarr.append(arr[20])
-    sortarr.append(arr[5])
-    sortarr.append(arr[16])
-    sortarr.append(arr[22])
-    sortarr.append(arr[4])
-    sortarr.append(arr[13])
-    sortarr.append(arr[26])
-    sortarr.append(arr[6])
-    sortarr.append(arr[15])
-    sortarr.append(arr[23])
-    sortarr.append(arr[7])
-    sortarr.append(arr[14])
-    sortarr.append(arr[25])
-    sortarr.append(arr[8])
-    sortarr.append(arr[17])
-    sortarr.append(arr[24])
-
-    return sortarr
-
+######################################################
+########### Access the results #######################
+######################################################
 
 def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2,combifit=True):
     '''Return basepath gamma for year year and the basepath specified by
@@ -76,6 +46,10 @@ def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2,combifi
 
     return alpha
 
+
+######################################################
+########### Generate the results #####################
+######################################################
 
 def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,combifit=True,step=2):
 
@@ -180,6 +154,113 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     print 'Saved file: '+save_filename
 
 
+def generate_basepath_gamma_optimal_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,combifit=True,step=2):
+
+    print "Loading: {0}. Warning columns not pre-labeled!!".format(txtfile)
+    txttitles = ['Year', 'Austria (wind)', 'Austria (solar)', 'Belgium (wind)', 'Belgium (solar)','Bulgaria (wind)','Bulgaria (solar)','Bosnia and Herzegovina (wind)','Bosnia and Herzegovina (solar)', 'Czech Republic (wind)', 'Czech Republic (solar)', 'Switzerland (wind)', 'Switzerland (solar)', 'Germany (wind)', 'Germany (solar)', 'Denmark (wind)', 'Denmark (solar)', 'Spain (wind)', 'Spain (solar)', 'France (wind)', 'France (solar)', 'Finland (wind)', 'Finland (solar)', 'Great Britain (wind)', 'Great Britain (solar)', 'Greece (wind)', 'Greece (solar)', 'Hungary (wind)', 'Hungary (solar)', 'Italy (wind)', 'Italy (solar)', 'Ireland (wind)', 'Ireland (solar)', 'Croatia (wind)', 'Croatia (solar)', 'Luxembourg (wind)', 'Luxembourg (solar)', 'Norway (wind)', 'Norway (solar)', 'Netherlands (wind)', 'Netherlands (solar)', 'Portugal (wind)', 'Portugal (solar)', 'Poland (wind)', 'Poland (solar)', 'Romania (wind)', 'Romania (solar)', 'Sweden (wind)', 'Sweden (solar)', 'Slovakia (wind)', 'Slovakia (solar)', 'Slovenia (wind)', 'Slovenia (solar)', 'Serbia (wind)', 'Serbia (solar)']
+    txtlabels = ['year', 'AT-wind', 'AT-solar', 'BE-wind', 'BE-solar',
+    'BG-wind', 'BG-solar', 'BA-wind', 'BA-solar', 'CZ-wind',
+    'CZ-solar', 'CH-wind', 'CH-solar', 'DE-wind', 'DE-solar',
+    'DK-wind', 'DK-solar', 'ES-wind', 'ES-solar', 'FR-wind',
+    'FR-solar', 'FI-wind', 'FI-solar', 'GB-wind', 'GB-solar',
+    'GR-wind', 'GR-solar', 'HU-wind', 'HU-solar', 'IT-wind',
+    'IT-solar', 'IE-wind', 'IE-solar', 'HR-wind', 'HR-solar',
+    'LU-wind', 'LU-solar', 'NO-wind', 'NO-solar', 'NL-wind',
+    'NL-solar', 'PT-wind', 'PT-solar', 'PL-wind', 'PL-solar',
+    'RO-wind', 'RO-solar', 'SE-wind', 'SE-solar', 'SK-wind',
+    'SK-solar', 'SI-wind', 'SI-solar', 'RS-wind', 'RS-solar']
+    data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
+    
+    p_year = array(data[0][2:-2])
+    # print p_year
+    year = arange(amin(p_year),amax(p_year)+1,1)
+    
+    if plot_on==True:
+        p_historical = p_year<=year_hist
+    else:
+        p_historical = None
+    #print 'p_historical ',p_historical
+    #print len(arange(1,data.shape[0]-1,2))
+    
+    gamma, alpha_w = [], []
+    for i in arange(1,data.shape[0]-1,2): # loop over countries
+        wind = array(data[i][2:-2])
+        solar = array(data[i+1][2:-2])
+        if (step == 3):
+            wind[-1] = data[i][-2] # take alternative values for 2050 in step 3
+            solar[-1] = data[i+1][-2]
+        elif (step == 4):
+            wind[-1] = data[i][-1] # take alternative values for 2050 in step 4
+            solar[-1] = data[i+1][-1]
+        # print 'country: ',txttitles[i]
+        # print 'wind: ',wind
+        # print 'solar: ',solar
+
+        if (combifit and txtlabels[i] != 'ES-wind'): # ES is messed up in combifit, so resort to separate fit in this case
+            i_data_w = find(~isnan(wind))
+            i_data_s = find(~isnan(solar))
+            i_data_ws = []
+            for j in range(len(i_data_w)):
+                if i_data_w[j] in i_data_s:
+                    i_data_ws.append(i_data_w[j])
+            i_data_ws=array(i_data_ws)
+
+            wind = wind[i_data_ws]
+            solar = solar[i_data_ws]
+            p_gamma=(wind+solar)
+            p_alpha_w=zeros(len(p_gamma))
+            for j in range(len(p_gamma)):
+                p_alpha_w[j]=wind[j]/p_gamma[j] if p_gamma[j]>1e-27 else 0.7
+            year, f_gamma, f_alpha_w = get_wind_solar_logistic_fit(p_year[i_data_ws],p_gamma,p_alpha_w,year0=year0,year=year)            
+
+            if plot_on==True:
+                plot_logistic_fit(year,f_gamma*f_alpha_w,p_year[i_data_ws],p_gamma*p_alpha_w,p_historical[i_data_ws],txtlabel=txtlabels[i],txttitle=txttitles[i],step=step,combifit=combifit)
+                plot_logistic_fit(year,f_gamma*(1-f_alpha_w),p_year[i_data_ws],p_gamma*(1-p_alpha_w),p_historical[i_data_ws],txtlabel=txtlabels[i+1],txttitle=txttitles[i+1],step=step,combifit=combifit)
+
+            gamma.append(f_gamma)
+            alpha_w.append(f_alpha_w)
+
+        else:
+            if ~all(isnan(wind)):
+                i_data = find(~isnan(wind))
+                year, gamma_wind = get_logistic_fit(p_year[i_data],wind[i_data],year0=year0,year=year)
+                if plot_on==True:
+                    plot_logistic_fit(year,gamma_wind,p_year[i_data],wind[i_data],p_historical[i_data],txtlabel=txtlabels[i],txttitle=txttitles[i],step=step,combifit=combifit)
+            else:
+                gamma_wind = zeros(wind.shape)
+        
+            if ~all(isnan(solar)):
+                i_data = find(~isnan(solar))
+                year, gamma_solar = get_logistic_fit(p_year[i_data],solar[i_data],year0=year0,year=year)
+                if plot_on:
+                    plot_logistic_fit(year,gamma_solar,p_year[i_data],solar[i_data],p_historical[i_data],txtlabel=txtlabels[i+1],txttitle=txttitles[i+1],step=step,combifit=combifit)
+                    
+            else:
+                gamma_solar = zeros(wind.shape)
+
+            gamma.append(gamma_wind+gamma_solar)
+            alpha_w.append(gamma_wind/(gamma_wind+gamma_solar))
+
+    save_filename='basepath_gamma_step_%u' % step
+    if combifit:
+        save_filename += '_combined_fit'
+    else:
+        save_filename += '_separate_fit'
+    np.save('./results/'+save_filename,concatenate([array(year,ndmin=2),array(gamma)]))
+    print 'Saved file: '+save_filename
+    save_filename = 'basepath_alpha_w_step_%u' %step
+    if combifit:
+        save_filename += '_combined_fit'
+    else:
+        save_filename += '_separate_fit'
+    np.save('./results/'+save_filename,concatenate([array(year,ndmin=2),array(alpha_w)]))
+    print 'Saved file: '+save_filename
+
+
+######################################################
+########### Various fit functions ####################
+######################################################
+
 def get_wind_solar_logistic_fit(p_year, p_gamma, p_alpha_w, year0=1980, year=None):
     """Combine targets for both gamma and alpha_w in one fit. Both wind and solar are required to follow a logistic growth."""
 
@@ -226,6 +307,123 @@ def get_logistic_fit(p_year,p_gamma,year0=1980,year=None):
     return year, fitfunc(p_fit,year)
 
 
+#
+# get_optimal_path_logistic_fit(p_year=[1980,2000,2010,2020,2050], p_gamma=[0.01,0.1,.25,0.5,1.0]);
+#
+def get_optimal_path_logistic_fit(p_year, p_gamma, ISO='DK', year0=1980., year=None, CS=None, rel_tol=1e-2):
+    """Combines targets for gamma with the optimal path to get an optimal build-up of wind and solar. Both follow a logistic growth."""
+
+    p_year, p_gamma = array(p_year,ndmin=1), array(p_gamma,ndmin=1)
+    
+    if year==None:
+        year = arange(amin(p_year),amax(p_year)+1,1)
+        
+    t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_country_data(ISO)
+    
+    ## Initial estimate of gamma vs year
+    p_alpha_w_opt = get_optimal_path_balancing(L,Gw,Gs,p_gamma,CS=CS)
+    year, gamma, alpha_w = get_wind_solar_logistic_fit(p_year, p_gamma, p_alpha_w_opt, year0, year)
+    
+    ## Iterate to get better match with the optimal mix. The gamma vs year estimate is used to provide a better and continous match to the optimal path. Otherwise few targets can result in large deviations from the optimal path.
+    rel_err = 1000; rel_goodness_old = 1000; i=0
+    while rel_err>rel_tol or i>10:
+        i+=1
+        gamma_w_old = gamma*alpha_w
+        
+        alpha_w_opt = get_optimal_path_balancing(L,Gw,Gs,gamma,CS=CS)
+        year, gamma, alpha_w = get_wind_solar_logistic_fit(year, gamma, alpha_w_opt, year0, year)
+
+        rel_goodness = amax(abs(gamma_w_old - gamma*alpha_w))
+        rel_err = abs(rel_goodness - rel_goodness_old)
+        rel_goodness_old = rel_goodness    
+    
+    return year, gamma, alpha_w
+
+
+def get_optimal_path_balancing(L, GW, GS, gamma=linspace(0,1,5), p_interval=0.01, CS=None, returnall=False, normalized=True):
+    """Wraper for get_optimal_mix_balancing(). This function allows gamma to be an array."""
+
+    gamma = array(gamma,ndmin=1)
+    
+    if returnall==True:
+        alpha_w_opt, alpha_w_opt_1p_interval, res_load_sum_opt, mismatch_opt, res_load_sum_1p = get_optimal_mix_balancing(L, GW, GS, gamma[0], p_interval, CS, returnall, normalized)
+        alpha_w_opt, alpha_w_opt_1p_interval, res_load_sum_opt, mismatch_opt, res_load_sum_1p = expand2array(alpha_w_opt,gamma), expand2array(alpha_w_opt_1p_interval,gamma), expand2array(res_load_sum_opt,gamma), expand2array(mismatch_opt,gamma), expand2array(res_load_sum_1p,gamma)
+        
+        for i in arange(1,len(gamma)):
+            alpha_w_opt[i], alpha_w_opt_1p_interval[i], res_load_sum_opt[i], mismatch_opt[i], res_load_sum_1p[i] = get_optimal_mix_balancing(L, GW, GS, gamma[i], p_interval, CS, returnall, normalized)
+        
+        return alpha_w_opt, alpha_w_opt_1p_interval, res_load_sum_opt, mismatch_opt, res_load_sum_1p
+
+    else:
+        alpha_w_opt = zeros(gamma.shape)
+        for i in arange(len(gamma)):
+            alpha_w_opt[i] = get_optimal_mix_balancing(L, GW, GS, gamma[i], p_interval, CS, returnall, normalized)
+        
+        return alpha_w_opt
+        
+
+def get_optimal_mix_balancing(L, GW, GS, gamma=1., p_interval=0.01, CS=None, returnall=False, normalized=True, DefaultWind=True):
+
+    L, GW, GS = array(L,ndmin=2), array(GW,ndmin=2), array(GS,ndmin=2)  #Ensure minimum dimension to 2 to alow the weighed sum to be calculated correctly.
+    weighed_sum = lambda x: sum(x,axis=0)/mean(sum(x,axis=0))
+
+    l = weighed_sum(L)
+    Gw = weighed_sum(GW)	
+    Gs = weighed_sum(GS)
+
+    mismatch = lambda alpha_w: gamma*(alpha_w*Gw + (1.-alpha_w)*Gs) - l
+
+    if CS==None:
+        res_load_sum = lambda alpha_w: sum(get_positive(-mismatch(alpha_w))) - alpha_w*0.001*sign(DefaultWind-.5)
+    else:
+        res_load_sum = lambda alpha_w: sum(get_positive(-get_policy_2_storage(mismatch(alpha_w),storage_capacity = CS)[0])) - alpha_w*0.001*sign(DefaultWind-.5)
+    
+    alpha_w_opt = optimize.fmin(res_load_sum,0.5,disp=False) #unknown to my scipy...
+
+    if alpha_w_opt>1.:
+        alpha_w_opt = 1.
+    elif alpha_w_opt<0.:
+        alpha_w_opt = 0.
+
+    if normalized:
+        if CS==None:
+            mismatch_opt = mismatch(alpha_w_opt)
+        else:
+            mismatch_opt = get_policy_2_storage(mismatch(alpha_w_opt),storage_capacity = CS)[0]
+    else:
+        if CS==None:
+            mismatch_opt = mismatch(alpha_w_opt)*mean(sum(L,axis=0))
+        else:
+            mismatch_opt = get_policy_2_storage(mismatch(alpha_w_opt),storage_capacity = CS)[0]*mean(sum(L,axis=0))
+            
+    res_load_sum_opt = res_load_sum(alpha_w_opt)
+
+    if returnall:
+        res_load_sum_1p_interval = lambda alpha_w: res_load_sum(alpha_w)-(res_load_sum(alpha_w_opt)+p_interval*sum(l))
+        
+        if sign(res_load_sum_1p_interval(0))!=sign(res_load_sum_1p_interval(alpha_w_opt)):
+            lower_bound = brentq(res_load_sum_1p_interval, 0, alpha_w_opt)
+        else:
+            lower_bound = 0
+        
+        if sign(res_load_sum_1p_interval(1))!=sign(res_load_sum_1p_interval(alpha_w_opt)):
+            upper_bound = brentq(res_load_sum_1p_interval, alpha_w_opt, 1)
+        else:
+            upper_bound = 1
+        
+        alpha_w_opt_1p_interval = array([lower_bound,upper_bound])
+        res_load_sum_1p = amax([res_load_sum(lower_bound),res_load_sum(upper_bound)])
+        
+        #Returns: alpha_w_opt, alpha_w_opt_1p_interval, res_load_sum_opt, mismatch_opt
+        return alpha_w_opt, alpha_w_opt_1p_interval, res_load_sum_opt, mismatch_opt, res_load_sum_1p
+    else:
+        return alpha_w_opt
+
+
+######################################################
+########### Plot functions ###########################
+######################################################
+
 def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=None,txttitle=None,step=2,combifit=False):
 
     if p_historical==None:
@@ -264,6 +462,45 @@ def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=N
         figname += 'separate'
     figname += ('_step_%u_' % step) + txtlabel + '.png'
     save_figure(figname)
+
+
+######################################################
+########### Little helpers ###########################
+######################################################
+
+def sort_to_node_order(arr):
+    '''Rolando has his own node order that does not
+    match the one I am using here. So, I have to convert.'''
+    sortarr = []
+    sortarr.append(arr[0])
+    sortarr.append(arr[10])
+    sortarr.append(arr[19])
+    sortarr.append(arr[3])
+    sortarr.append(arr[9])
+    sortarr.append(arr[18])
+    sortarr.append(arr[1])
+    sortarr.append(arr[11])
+    sortarr.append(arr[21])
+    sortarr.append(arr[2])
+    sortarr.append(arr[12])
+    sortarr.append(arr[20])
+    sortarr.append(arr[5])
+    sortarr.append(arr[16])
+    sortarr.append(arr[22])
+    sortarr.append(arr[4])
+    sortarr.append(arr[13])
+    sortarr.append(arr[26])
+    sortarr.append(arr[6])
+    sortarr.append(arr[15])
+    sortarr.append(arr[23])
+    sortarr.append(arr[7])
+    sortarr.append(arr[14])
+    sortarr.append(arr[25])
+    sortarr.append(arr[8])
+    sortarr.append(arr[17])
+    sortarr.append(arr[24])
+
+    return sortarr
 
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):

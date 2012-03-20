@@ -1,6 +1,7 @@
 from zdcpf import *
 import scipy.optimize as optimize
 from logistic_gammas import *
+from Database_v2 import * # only needed for optimal alphas
 #import matplotlib.pyplot as plt
 
 def copper_flow():
@@ -351,6 +352,31 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
 
     picname = picname +'_'+ prefix + ('_step_%u' %step) + '.png'
     save_figure(picname)
+
+def get_optimal_alphas(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',step=2):
+    data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
+
+    ISO = ['AT', 'BE', 'BG', 'BA', 'CZ', 'CH', 'DE', 'DK', 'ES', 
+    'FR', 'FI', 'GB', 'GR', 'HU', 'IT', 'IE', 'HR', 'LU', 'NO', 
+    'NL', 'PT', 'PL', 'RO', 'SE', 'SK', 'SI', 'RS']
+
+    alpha = []    
+    for i in arange(1,data.shape[0]-1,2): # loop over countries
+        wind = array(data[i][2:-2])
+        solar = array(data[i+1][2:-2])
+        if (step == 3):
+            wind[-1] = data[i][-2] # take alternative values for 2050 in step 3
+            solar[-1] = data[i+1][-2]
+        elif (step == 4):
+            wind[-1] = data[i][-1] # take alternative values for 2050 in step 4
+            solar[-1] = data[i+1][-1]
+        gamma = solar[-1] + wind[-1]
+        t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_country_data(ISO[(i-1)/2])    
+        alpha_opt = get_optimal_mix_balancing(L,Gw,Gs,gamma,CS=None)
+        alpha.append(alpha_opt)
+        print ISO[(i-1)/2], alpha_opt
+    return alpha
+
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
