@@ -1,17 +1,15 @@
 #! /usr/bin/env python
 from pylab import *
 from scipy import *
-from scipy.sparse import coo_matrix # same as prev. used cvxopt.spmatrix
+from scipy.sparse import coo_matrix # analog of prev. used cvxopt.spmatrix
 from numpy import concatenate as conc
 import numpy as np
-from cvxopt import matrix,solvers,spmatrix,sparse,spdiag
 from time import time
 import sys, os
 from copy import deepcopy
 import ctypes as ct
 
 colors_countries = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers.
-solvers.options['show_progress']=False
 
 def get_positive(x):
     return x*(x>0.)  #Possibly it has to be x>1e-10.
@@ -235,37 +233,6 @@ def get_colored_flow(flow, export, incidence_matrix='incidence.txt'):
 
     return array(FF), array(C)   
 
-def dcpowerflow(c,P,q,G,h,A,b):
-    eps=1e-2 # small tolerance
-    Nnodes=np.size(matrix(A),0)+1 # includes dummy node
-    Nlinks=np.size(matrix(P),0)-2*Nnodes # includes dummy link
-    # minimize balancing/curtailment first
-    sol1=solvers.lp(c,G,h,A,b)
-    x1=sol1['x']
-    sumbal=sum(x1[Nlinks+1:Nlinks+Nnodes]) # minimal balancing
-    sumcurt=sum(x1[Nlinks+Nnodes+1:Nlinks+2*Nnodes]) # minimal curtailment
-    # add condition that balancing/curtailment be minimal to
-    # inequality constraint (in equality constraint it causes sing. KKT mat.)
-    h1=concatenate((h,matrix([sumbal+eps,sumcurt+eps])),0)
-    h1=matrix(h1,tc='d')
-    colind=arange(Nlinks+1,Nlinks+Nnodes)
-    rowind=ndarray((len(colind),),int)*0
-    balones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
-    colind=arange(Nlinks+Nnodes+1,Nlinks+2*Nnodes)
-    curtones=spmatrix(1.,rowind,colind,(1,Nlinks+2*Nnodes))
-    G1=sparse([G,balones,curtones],tc='d')
-    P1=P
-    #print P1[Nlinks+2,Nlinks+2]
-    P1[Nlinks+1:,:]=P1[Nlinks+1:,:]*1e0
-    q1=np.zeros(Nlinks+2*Nnodes)
-    q1[Nlinks+1:]=1. # skip the dummy node
-    #print q1[Nlinks]
-    q1[Nlinks+Nnodes]=0. # skip the dummy node
-    q1=2.e1*q1
-    q1=matrix(q1,tc='d')
-    sol=solvers.qp(P,q1,G1,h1,A,b)
-    return sol['x']
-
 def AtoKh(N,pathadmat='./settings/admat.txt'):
     Ad=np.genfromtxt(pathadmat,dtype='d')
     L=0
@@ -295,136 +262,12 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
                     if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
                     L+=1
     K=coo_matrix((K_values,(K_row_indices,K_column_indices)))
-    K_old=spmatrix(K_values,K_row_indices,K_column_indices)
     # rowstring='{'
     # for i in range(len(K_values)):
     #     rowstring += str(K_row_indices[i]+1)+','+str(K_column_indices[i]+1)+' '
     # rowstring += '}'
     # print rowstring
-    return K, K_old, K_values, h, listFlows               
-
-def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
-    K,h, listFlows=AtoKh(N,path+admat)
-    if h0 != None: 
-        h[2:90]=h0
-    if b != None:
-        for i in range(2*np.size(listFlows,0)): h[i]*=b
-    Nnodes=np.size(matrix(K),0)
-    Nlinks=np.size(matrix(K),1)
-    # These numbers include the dummy node and link
-    # With this info, we create the P matrix, sized (Nlinks+2Nnodes)^2
-    # because a row is needed for each flow, and two for each node
-    P1=spmatrix(1,range(Nlinks),range(Nlinks))
-    P2=spmatrix(1e-6,range(2*Nnodes),range(2*Nnodes)) # and the bal/cur part has dif. coeffs
-    P= spdiag([P1,P2])
-    # Then we make the q vector, whose values will be changed all the time
-    q=np.zeros(Nlinks+2*Nnodes)  # q has the same size and structure as the solution 'x'
-    # Then we build the equality constraint matrix A
-    # The stucture is more or less [ K | -I | I ]
-    A1=spmatrix(1.,range(Nnodes),range(Nnodes))
-    A=sparse([[K],[-A1],[A1]])
-    # First row is cut so that A is nonsingular (see doc)
-    A=A[1:,:]
-    # b vector will be defined by the mismatches, in MAIN
-    # Finally, the inequality matrix and vector, G and h.
-    # Refer to doc to understand what the hell I'm doing, as I build
-    # G...
-    G1_values=[]
-    G1_row_ind=[]
-    G1_col_ind=[]
-    for i in range(Nlinks):
-      G1_values.extend([1,-1])
-      G1_col_ind.extend([i,i])
-    G1_row_ind=range(2*Nlinks)
-    G1=spmatrix(G1_values,G1_row_ind,G1_col_ind)
-    # to model copper plate, we forget about the effect of G matrix on the flows
-    if copper == 1:
-        G1=spmatrix([1,-1],[0,1],[0,0],(2*Nlinks,Nlinks))
-   # G1 is ready, now we make G2
-    G2=spmatrix([],[],[],(2*Nlinks,2*Nnodes))
-    # G3 is built as [ 0 | -I | 0 ]
-    G3=spmatrix(-1.,range(Nnodes),range(Nnodes))
-    G3_hlp1=spmatrix([],[],[],(Nnodes,Nlinks))
-    G3_hlp2=spmatrix([],[],[],(Nnodes,Nnodes))
-    G3=sparse([[G3_hlp1],[G3],[G3_hlp2]])
-    G4_values=[]
-    G4_row_ind=[]
-    G4_col_ind=[]
-    for i in range(Nnodes):
-      G4_values.extend([1,-1])
-      G4_col_ind.extend([i,i])
-    G4_row_ind=range(2*(Nnodes))
-    G4=spmatrix(G4_values,G4_row_ind,G4_col_ind)
-    G5=spmatrix([],[],[],(2*(Nnodes),Nlinks+Nnodes))
-    G5=sparse([[G5],[G4]])
-    G=sparse([[G1],[G2]])
-    G=sparse([G,G3,G5])
-    return P,q,G,h,A,K, listFlows
-
-def runtimeseries(N,F,c,P,q,G,h,A,coop,lapse):
-    if lapse==None:
-        lapse=Nodes[0].mismatch.shape[0]
-    Nlinks=np.size(matrix(F),0)
-    Nnodes=np.size(matrix(A),0)
-    start=time()
-    b=np.zeros(Nnodes)
-    b=matrix(b,tc='d')
-    P_b=P[Nlinks+2:Nlinks+Nnodes+2,:]*1e6
-    for t in range(lapse):
-        for i in N:
-            b[i.id]=i.mismatch[t]
-            # from default, both curtailment and balancing have a minimum of 0.
-            # in order to prevent export of curtailment, max curtailment is set to b
-            h[2*Nlinks+Nnodes+5+2*i.id]=0
-            if b[i.id]>0:
-                h[2*Nlinks+Nnodes+5+2*i.id]=b[i.id]
-        # then, we set the values of q_b and q_r for bal and cur, according to doc.
-        # for Gorm's inequalities, we need f,L,delta
-        f=P[0,0]
-        L=Nnodes-1
-        d=np.array(b)
-        #d=b
-        excess=np.dot(d.T,d>0)#[0][0]
-        deficit=abs(np.dot(d.T,d<0))#[0][0])
-        delta=min(excess,deficit)
-        q_r=L*f*2*delta*0.5
-        q_b=L*f*2*delta+q_r*(1.5)
-        q[Nlinks+2:Nlinks+Nnodes+2]=q_b
-        q[Nlinks+Nnodes+2:]=q_r
-        if coop==1:
-            P[Nlinks+2:Nlinks+Nnodes+2,:]=P_b*L*f*deficit*.99
-        opt=dcpowerflow(c,P,q,G,h,A,b)   ########### Save relevant solution as flows
-        for j in range(Nlinks):
-            F[j][t]=opt[j+1]           
-        for k in N:              ########### Save balancing at each node
-            k.balancing[t]=opt[2+Nlinks+k.id]
-            k.curtailment[t]=opt[3+Nlinks+Nnodes+k.id]  
-        end=time()
-        if (np.mod(t,1000)==0) and t>0:
-            print "Elapsed time is ",round(end-start)," seconds. t = ",t," out of ",lapse
-            sys.stdout.flush()
-    end=time()
-    #sys.stdout.flush()
-    print "Calculation took ",round(end-start)," seconds."
-    return N,F
-
-def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=None,h0=None):
-    if lapse == None:
-        lapse=N[0].nhours
-    P,q,G,h,A,K, listFlows = generatemat(N,admat,b,path,copper,h0)
-    Nnodes=np.size(matrix(K),0)-1
-    Nlinks=np.size(matrix(K),1)-1
-    F=np.zeros((Nlinks,lapse))
-    P=sparse(P,tc='d')
-    q=matrix(q,tc='d')
-    G=sparse(G,tc='d')
-    h=matrix(h,tc='d')
-    A=sparse(A,tc='d')
-    c=concatenate((1e-6*np.ones(Nlinks+1),np.ones(2*Nnodes+2)))
-    c=matrix(c,tc='d')
-    #print shape(matrix(G))
-    N,F=runtimeseries(N,F,c,P,q,G,h,A,coop,lapse)
-    return N,F, listFlows
+    return K, K_values, h, listFlows               
 
 def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=None):
     Nlinks=44
@@ -440,10 +283,8 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
 
     if lapse == None:
         lapse=N[0].nhours
-    km, ko ,kv,H,Lf=AtoKh(N) # dummy node has been deleted from admat.txt!!!
+    km,kv,H,Lf=AtoKh(N) # dummy node has been deleted from admat.txt!!!
     km = np.matrix(km.todense())
-    ko = np.matrix(matrix(ko))
-    print all(km == ko)
     if (h0 != None):
         H=h0
     h_neg=-H[1:88:2]
