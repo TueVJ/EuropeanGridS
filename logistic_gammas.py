@@ -4,7 +4,7 @@ from scipy import optimize as optimize
 
 def sort_to_node_order(arr):
     '''Rolando has his own node order that does not
-    match the one I am using. So, I have to convert.'''
+    match the one I am using here. So, I have to convert.'''
     sortarr = []
     sortarr.append(arr[0])
     sortarr.append(arr[10])
