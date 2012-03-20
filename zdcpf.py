@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 from pylab import *
 from scipy import *
+from scipy.sparse import coo_matrix # same as prev. used cvxopt.spmatrix
 from numpy import concatenate as conc
 import numpy as np
 from cvxopt import matrix,solvers,spmatrix,sparse,spdiag
@@ -293,13 +294,14 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
                     h[2*L+1]=Ad[j,i]
                     if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
                     L+=1
-    K=spmatrix(K_values,K_row_indices,K_column_indices)
+    K=coo_matrix((K_values,(K_row_indices,K_column_indices)))
+    K_old=spmatrix(K_values,K_row_indices,K_column_indices)
     # rowstring='{'
     # for i in range(len(K_values)):
     #     rowstring += str(K_row_indices[i]+1)+','+str(K_column_indices[i]+1)+' '
     # rowstring += '}'
     # print rowstring
-    return K,K_values,h, listFlows               
+    return K, K_old, K_values, h, listFlows               
 
 def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
     K,h, listFlows=AtoKh(N,path+admat)
@@ -438,8 +440,10 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
 
     if lapse == None:
         lapse=N[0].nhours
-    km,kv,H,Lf=AtoKh(N) # dummy node has been deleted from admat.txt!!!
-    km = np.matrix(matrix(km))
+    km, ko ,kv,H,Lf=AtoKh(N) # dummy node has been deleted from admat.txt!!!
+    km = np.matrix(km.todense())
+    ko = np.matrix(matrix(ko))
+    print all(km == ko)
     if (h0 != None):
         H=h0
     h_neg=-H[1:88:2]
