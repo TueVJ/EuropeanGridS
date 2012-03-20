@@ -128,7 +128,7 @@ def compare_flows(name1,name2,epsrel=1.e-3,epsabs=20,silent=False):
             flsum[0,i] += (f1[j][i])*(f1[j][i])
             flsum[1,i] += (f2[j][i])*(f2[j][i])
             summe=f1[j][i]+f2[j][i]
-            reldiff=abs(f1[j][i]-f2[j][i])/summe
+            reldiff=2*abs(f1[j][i]-f2[j][i])/summe
             if (reldiff>epsrel and summe>epsabs):
                 flowcheck = False
                 if not silent:
@@ -137,7 +137,7 @@ def compare_flows(name1,name2,epsrel=1.e-3,epsabs=20,silent=False):
                     print name2,': ',f2[j][i]
                     print 'Relative difference: ', reldiff
         summe=flsum[0,i]+flsum[1,i]
-        reldiff=abs(flsum[0,i]-flsum[1,i])/summe
+        reldiff=2*abs(flsum[0,i]-flsum[1,i])/summe
         if (reldiff>epsrel and summe>epsabs):
             print 'Sum of squared flows at time ',i,' differs'
             print name1,': ',flsum[0,i]

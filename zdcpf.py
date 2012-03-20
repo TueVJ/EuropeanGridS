@@ -1,15 +1,15 @@
 #! /usr/bin/env python
 from pylab import *
 from scipy import *
+from scipy.sparse import coo_matrix # analog of prev. used cvxopt.spmatrix
 from numpy import concatenate as conc
 import numpy as np
-from cvxopt import matrix,solvers,spmatrix,sparse,spdiag
 from time import time
 import sys, os
 from copy import deepcopy
+import ctypes as ct
 
 colors_countries = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers.
-solvers.options['show_progress']=False
 
 def get_positive(x):
     return x*(x>0.)  #Possibly it has to be x>1e-10.
@@ -18,8 +18,8 @@ class node:
     def __init__(self,path,fileName,ID):
         self.id = ID
         data = load(path + fileName)
-        self.gamma = 1.0#float(setup[ID][0])
-        self.alpha = 0.725#float(setup[ID][1])  #Alpha should be expanded to a vector.  completalpha() can be applied in update()
+        self.gamma = 1.0
+        self.alpha = 0.7
         self.load = 1000*array(map(double,data['L']))
         self.nhours = len(self.load)
         self.normwind = array(map(double,data['Gw']))
@@ -43,8 +43,7 @@ class node:
         
     def get_export(self):	
         """Returns export power time series in units of MW."""
-        #return get_positive(self.mismatch) - self.curtailment + get_positive(self.balancing - get_positive(-self.mismatch))
-        return get_positive(self.mismatch) - self.curtailment	    
+        return get_positive(self.mismatch) - self.curtailment + get_positive(self.balancing - get_positive(-self.mismatch))
 
     def get_localRES(self):
         """Returns the local use of RES power time series in units of MW."""
@@ -137,6 +136,28 @@ class Nodes:
         print 'Saved nodes to file: ', path+filename
         sys.stdout.flush()
         
+    def save_nodes_small(self,filename,path='./results/'):
+        """Saves the non-redundant contents of a Nodes instance to a
+        npz file. A little less convenient, but much smaller."""
+        
+        attribute = dir(self[0])
+        save_str = []
+        #Determine which attributes to be saved
+        for attribute in dir(self[0]):
+            if attribute[0]=='_':
+                continue
+            if (attribute=='load' or attribute=='normwind' or attribute=='normsolar' or attribute=='mismatch' or attribute=='gen'):
+                continue
+            elif is_numlike(getattr(self[0],attribute)) or is_string_like(getattr(self[0],attribute)):
+                print attribute
+                save_str.append(attribute + '=' + 'array([self[i].'+attribute+' for i in arange(len(self))])')
+
+        #Write save file
+        eval('savez(path+filename,'+','.join(save_str)+')')
+
+        print 'Saved nodes to file: ', path+filename
+        sys.stdout.flush()
+        
     def _load_nodes_(self,load_filename,path='./results/'):
         """Loads a Nodes instance from an npz file."""
 
@@ -213,10 +234,6 @@ def get_colored_flow(flow, export, incidence_matrix='incidence.txt'):
 
     return array(FF), array(C)   
 
-def dcpowerflow(P,q,G,h,A,b):
-    sol=solvers.qp(P,q,G,h,A,b)
-    return sol['x']
-
 def AtoKh(N,pathadmat='./settings/admat.txt'):
     Ad=np.genfromtxt(pathadmat,dtype='d')
     L=0
@@ -245,112 +262,109 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
                     h[2*L+1]=Ad[j,i]
                     if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
                     L+=1
-    K=spmatrix(K_values,K_row_indices,K_column_indices)
-    return K,h, listFlows               
+    K=coo_matrix((K_values,(K_row_indices,K_column_indices)))
+    # rowstring='{'
+    # for i in range(len(K_values)):
+    #     rowstring += str(K_row_indices[i]+1)+','+str(K_column_indices[i]+1)+' '
+    # rowstring += '}'
+    # print rowstring
+    return K, K_values, h, listFlows               
 
-def generatemat(N,admat='admat.txt',b=None,path='./settings/',copper=0,h0=None):
-    K,h, listFlows=AtoKh(N,path+admat)
-    if h0 != None: 
-        h[2:90]=h0
-    if b != None:
-        for i in range(2*np.size(listFlows,0)): h[i]*=b
-    Nnodes=np.size(matrix(K),0)
-    Nlinks=np.size(matrix(K),1)
-    # These numbers include the dummy node and link
-    # With this info, we create the P matrix, sized (Nlinks+2Nnodes)^2
-    # because a row is needed for each flow, and two for each node
-    P1=spmatrix(1,range(Nlinks),range(Nlinks))
-    P2=spmatrix(1e-6,range(2*Nnodes),range(2*Nnodes)) # and the bal/cur part has dif. coeffs
-    P= spdiag([P1,P2])
-    # Then we make the q vector, whose values will be changed all the time
-    q=np.zeros(Nlinks+2*Nnodes)  # q has the same size and structure as the solution 'x'
-    # Then we build the equality constraint matrix A
-    # The stucture is more or less [ K | -I | I ]
-    A1=spmatrix(1.,range(Nnodes),range(Nnodes))
-    A=sparse([[K],[-A1],[A1]])
-    # See documentation for why first row is cut
-    A=A[1:,:]
-    # b vector will be defined by the mismatches, in MAIN
-    # Finally, the inequality matrix and vector, G and h.
-    # Refer to doc to understand what the hell I'm doing, as I build
-    # G...
-    G1_values=[]
-    G1_row_ind=[]
-    G1_col_ind=[]
-    for i in range(Nlinks):
-      G1_values.extend([1,-1])
-      G1_col_ind.extend([i,i])
-    G1_row_ind=range(2*Nlinks)
-    G1=spmatrix(G1_values,G1_row_ind,G1_col_ind)
-    # to model copper plate, we forget about the effect of G matrix on the flows
-    if copper == 1:
-        G1=spmatrix([1,-1],[0,1],[0,0],(2*Nlinks,Nlinks))
-    # G1 is ready, now we make G2
-    G2=spmatrix([],[],[],(2*Nlinks,2*Nnodes))
-    # G3 is built as [ 0 | -I | 0 ]
-    G3=spmatrix(-1.,range(Nnodes),range(Nnodes))
-    G3_hlp1=spmatrix([],[],[],(Nnodes,Nlinks))
-    G3_hlp2=spmatrix([],[],[],(Nnodes,Nnodes))
-    G3=sparse([[G3_hlp1],[G3],[G3_hlp2]])
-    G4_values=[]
-    G4_row_ind=[]
-    G4_col_ind=[]
-    for i in range(Nnodes):
-      G4_values.extend([1,-1])
-      G4_col_ind.extend([i,i])
-    G4_row_ind=range(2*(Nnodes))
-    G4=spmatrix(G4_values,G4_row_ind,G4_col_ind)
-    G5=spmatrix([],[],[],(2*(Nnodes),Nlinks+Nnodes))
-    G5=sparse([[G5],[G4]])
-    G=sparse([[G1],[G2]])
-    G=sparse([G,G3,G5])
-    return P,q,G,h,A,K, listFlows
+def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=None):
+    Nlinks=44
+    Nnodes=27
+    firststep=ct.CDLL('./balmin/libbalmin.so')
+    firststep.balmin.restype=ct.c_double # default return type is int
+    ufirststep=ct.CDLL('./ubalmin/libubalmin.so')
+    ufirststep.ubalmin.restype=ct.c_double # default return type is int
+    secondstep=ct.CDLL('./flowmin/libflowmin.so')
+    secondstep.flowmin.restype=ct.c_int # just for fun
+    usecondstep=ct.CDLL('./uflowmin/libuflowmin.so')
+    usecondstep.uflowmin.restype=ct.c_int # just for fun
 
-def runtimeseries(N,F,P,q,G,h,A,coop,lapse):
-    if lapse==None:
-        lapse=Nodes[0].mismatch.shape[0]
-    Nlinks=np.size(matrix(F),0)
-    Nnodes=np.size(matrix(A),0)
+    if lapse == None:
+        lapse=N[0].nhours
+    km,kv,H,Lf=AtoKh(N) # dummy node has been deleted from admat.txt!!!
+    km = np.matrix(km.todense())
+    if (h0 != None):
+        H=h0
+    h_neg=-H[1:88:2]
+    h_pos=H[0:88:2]
+    #print 'h_pos: ',shape(h_neg),h_neg
+    if (copper == 1):
+        h_neg=-1.e6*np.ones(Nlinks)
+        h_pos=1.e6*np.ones(Nlinks)
+    #print 'h_pos: ',shape(h_neg),h_neg
+    flw=np.zeros(Nlinks)
+    k=array([float(i) for i in kv])
+    K=k.ctypes.data_as(ct.c_void_p)
+    H_neg=h_neg.ctypes.data_as(ct.c_void_p)
+    H_pos=h_pos.ctypes.data_as(ct.c_void_p)
+    Flw=flw.ctypes.data_as(ct.POINTER(ct.c_double)) # for return by ref
+
+    delta=np.zeros(Nnodes)
+
+    F=np.zeros((Nlinks,lapse)) # save flows and deltas to calc bal and curt later
+    deltas=np.zeros((Nnodes,lapse))
+    eps=1e-1
     start=time()
-    b=np.zeros(Nnodes)
-    b=matrix(b,tc='d')
-    P_b=P[Nlinks+2:Nlinks+Nnodes+2,:]*1e6
-    for t in range(lapse):
-        for i in N:
-            b[i.id]=i.mismatch[t]
-            # from default, both curtailment and balancing have a minimum of 0.
-            # in order to prevent export of curtailment, max curtailment is set to b
-            h[2*Nlinks+Nnodes+5+2*i.id]=0
-            if b[i.id]>0:
-                h[2*Nlinks+Nnodes+5+2*i.id]=b[i.id]
-        # then, we set the values of q_b and q_r for bal and cur, according to doc.
-        # for Gorm's inequalities, we need f,L,delta
-        f=P[0,0]
-        L=Nnodes-1
-        d=np.array(b)
-        #d=b
-        excess=np.dot(d.T,d>0)#[0][0]
-        deficit=abs(np.dot(d.T,d<0))#[0][0])
-        delta=min(excess,deficit)
-        q_r=L*f*2*delta*0.5
-        q_b=L*f*2*delta+q_r*(1.5)
-        q[Nlinks+2:Nlinks+Nnodes+2]=q_b
-        q[Nlinks+Nnodes+2:]=q_r
-        if coop==1:
-            P[Nlinks+2:Nlinks+Nnodes+2,:]=P_b*L*f*deficit*.99
-        opt=dcpowerflow(P,q,G,h,A,b)   ########### Save relevant solution as flows
-        for j in range(Nlinks):
-            F[j][t]=opt[j+1]           
-        for k in N:              ########### Save balancing at each node
-            k.balancing[t]=opt[2+Nlinks+k.id]
-            k.curtailment[t]=opt[3+Nlinks+Nnodes+k.id]  
+    if (copper == 0):
+        for t in range(lapse):
+            for i in N:
+                delta[i.id]=i.mismatch[t]
+            deltas[:,t]=delta
+            Delta=delta.ctypes.data_as(ct.c_void_p)
+            MinBal=firststep.balmin(Delta,K,H_neg,H_pos)
+            # print "MinBal is ", MinBal
+            minbal=ct.c_double(MinBal+eps)
+            dummy=secondstep.flowmin(Delta,K,H_neg,H_pos,minbal,Flw)
+            for i in range(Nlinks):
+                F[i,t]=Flw[i]
+            # print "MinFlows are "
+            # print F[:,t]
+            end=time()
+            if (np.mod(t,2073)==0) and t>0:
+                 print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
+                 sys.stdout.flush()
         end=time()
-        if (np.mod(t,1000)==0) and t>0:
-            print "Elapsed time is ",round(end-start)," seconds. t = ",t," out of ",lapse
-            sys.stdout.flush()
+        print "Calculation took %3.1f seconds." % (end-start)
+        sys.stdout.flush()
+    else: # use special unbounded C-fctns for unbounded copper flow
+        for t in range(lapse):
+            for i in N:
+                delta[i.id]=i.mismatch[t]
+            deltas[:,t]=delta
+            Delta=delta.ctypes.data_as(ct.c_void_p)
+            MinBal=ufirststep.ubalmin(Delta,K)
+            # print "MinBal is ", MinBal
+            minbal=ct.c_double(MinBal+eps)
+            dummy=usecondstep.uflowmin(Delta,K,minbal,Flw)
+            for i in range(Nlinks):
+                F[i,t]=Flw[i]
+            # print "MinFlows are "
+            # print F[:,t]
+            end=time()
+            if (np.mod(t,2073)==0) and t>0:
+                print "Elapsed time is %3.1f seconds. t = %u out of %u" % ((end-start), t, lapse)
+                sys.stdout.flush()
+        end=time()
+        print "Calculation took %3.1f seconds." % (end-start)
+        sys.stdout.flush()
+
+    # no matter how the flows were obtained, we still have to calc bal and curt
+    start2=time()
+    for t in range(lapse):
+        tmp=np.array(F[:,t])
+        tmp2=np.array(deltas[:,t])
+        tmp3=transpose(tmp2-dot(km,tmp))
+        balancing=[-tmp3[i,0] if tmp3[i,0]<0 else 0. for i in range(len(tmp3))]
+        curtailment=[tmp3[i,0] if tmp3[i,0]>0 else 0. for i in range(len(tmp3))]
+        for i in N:
+            i.balancing[t] = balancing[i.id]
+            i.curtailment[t] = curtailment[i.id]
     end=time()
-    #sys.stdout.flush()
-    print "Calculation took ",round(end-start)," seconds."
+    print "Assigning balancing and curtailment took %3.1f seconds." % (end-start2)
+    print "Complete calculation took %3.1f seconds." % (end-start)
     return N,F
 
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):
@@ -386,211 +400,3 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
 #    b=hist(flows[link+1],bins=b,range=[flows[link+1].min(),-0.1],normed=1,histtype='stepfilled')
     a=hist(flows[link],bins=b,normed=1,histtype='stepfilled')
     show()
-
-def zdcpf(N,admat='admat.txt',path='./settings/',coop=0,copper=0,lapse=None,b=None,h0=None):
-    if lapse == None:
-        lapse=N[0].nhours
-    P,q,G,h,A,K, listFlows = generatemat(N,admat,b,path,copper,h0)
-    Nnodes=np.size(matrix(K),0)-1
-    Nlinks=np.size(matrix(K),1)-1
-    F=np.zeros((Nlinks,lapse))
-    P=sparse(P,tc='d')
-    q=matrix(q,tc='d')
-    G=sparse(G,tc='d')
-    h=matrix(h,tc='d')
-    A=sparse(A,tc='d')
-    N,F=runtimeseries(N,F,P,q,G,h,A,coop,lapse)
-    return N,F, listFlows
-
-##
-def Case_A(betas=[0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.125,0.15,0.175,0.20,0.25,0.3,0.35,0.40,0.45,0.5,0.75,0.85,0.90]):
-    '''Applying a fraction b of the 99Q optimal'''    
-    N=Nodes()
-    h0=get_quant(.99)
-    for b in betas:
-        N,F,lF=zdcpf(N,b=b,h0=h0)
-        N.save_nodes('Case_A_Beta_'+str(b))
-        save('./results/'+'Flows_Case_A_Beta_'+str(b),F)
-
-def Case_B(links=np.arange(1000.0,15000.1,1000.0)):
-    ''' Icreasing capacity in each link evenly -- until link reaches 99Q optimal '''
-    N=Nodes()
-    hopt=get_quant(.99)
-    h0=get_quant(.99)
-    for l in links:
-        for h in range(len(hopt)):
-            h0[h]=l
-            if hopt[h]<l: h0[h]=hopt[h]
-        N,F,lF=zdcpf(N,h0=h0)
-        N.save_nodes('Case_B_Link_'+str(l))
-        save('./results/'+'Flows_Case_B_Link_'+str(l),F)
-
-def Case_C(betas=[1e-7,0.25,0.5,0.75,1.0,1.10,1.20,1.30,1.40,1.50,1.60,1.70,1.80,1.90,2.0,2.25,2.50,2.75,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,12.5,15.0,17.5,20.0,25.0,30.0]):
-    '''Implements on each link a factor b of its actual capacity'''    
-    N=Nodes()
-    for b in betas:
-        N,F,lF=zdcpf(N,b=b)
-        N.save_nodes('Case_C_Beta_'+str(b))
-        save('./results/'+'Flows_Case_C_Beta_'+str(b),F)
-
-def Case_D(quants=[0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.125,0.15,0.175,0.20,0.25,0.3,0.35,0.40,0.45,0.5,0.75,0.85,0.90,0.99]):
-    '''Gives to each link a q Quantile of its copper plate optimum'''    
-    N=Nodes()
-    for q in quants:
-        h0=get_quant(q)
-        N,F,lF=zdcpf(N,h0=h0)
-        N.save_nodes('Case_D_Quant_'+str(q))
-        save('./results/'+'Flows_Case_D_Quant_'+str(q),F)
-
-def biggestpair(H):
-    H0=np.zeros((len(H))/2)
-    for i in range(len(H0)):
-        H0[i]=max(H[2*i],H[2*i+1])
-    return H0
-
-def Plot_A():
-    betas=[0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.125,0.15,0.175,0.20,0.25,0.3,0.35,0.40,0.45,0.5,0.75,0.85,0.90,1.0,1.1,1.2,1.3,1.4,1.5,2.0,3.0,4.0,5.0]
-    N=Nodes()
-    K,Hac,lF=AtoKh(N)
-    Hact=biggestpair(Hac)
-    Hop=get_quant(.99)
-    Hopt=biggestpair(Hop)
-    PlotA=np.zeros((len(betas),2))
-    j=0
-    for b in betas:
-        PlotA[j,0]=b*sum(Hopt)/sum(Hact)
-        N=Nodes(load_filename='Case_A_Beta_'+str(b)+'.npz')
-        a=0
-        d=0
-        for i in N:
-            a+=sum(i.balancing)
-            d+=i.mean*i.nhours
-        c=a/d
-        PlotA[j,1]=c
-        j+=1
-    save('./results/PlotA',PlotA)
-    return PlotA
-
-def Plot_B():
-    links=np.arange(1000.0,30000.1,1000.0)
-    N=Nodes()
-    K,Hac,lF=AtoKh(N)
-    Hact=biggestpair(Hac)
-    hopt=get_quant(.99)
-    h0=get_quant(.99) 
-    PlotB=np.zeros((len(links),2))
-    j=0
-    for l in links:
-        for h in range(len(hopt)):
-            h0[h]=l
-            if hopt[h]<l: h0[h]=hopt[h]
-        Hopt=biggestpair(h0)
-        PlotB[j,0]=sum(Hopt)/sum(Hact)
-        N=Nodes(load_filename='Case_B_Link_'+str(l)+'.npz')
-        a=0
-        d=0
-        for i in N:
-            a+=sum(i.balancing)
-            d+=i.mean*i.nhours
-        c=a/d
-        PlotB[j,1]=c
-        j+=1
-    save('./results/PlotB',PlotB)
-    return PlotB
-
-def Plot_C():
-    betas=[1e-7,0.25,0.5,0.75,1.0,1.10,1.20,1.30,1.40,1.50,1.60,1.70,1.80,1.90,2.0,2.25,2.50,2.75,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,12.5,15.0,17.5,20.0,25.0,30.0]
-    PlotC=np.zeros((len(betas),2))
-    j=0
-    for b in betas:
-        PlotC[j,0]=b
-        N=Nodes(load_filename='Case_C_Beta_'+str(b)+'.npz')
-        a=0
-        d=0
-        for i in N:
-            a+=np.sum(i.balancing)
-            d+=i.mean*i.nhours
-        c=a/d
-        PlotC[j,1]=c
-        j+=1
-    save('./results/PlotC',PlotC)
-    return PlotC
-
-def Plot_D():
-    quants=[0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.125,0.15,0.175,0.20,0.25,0.3,0.35,0.40,0.45,0.5,0.75,0.85,0.9,0.91,0.92,0.93,0.94,0.95,0.96,0.97,0.98,0.99,0.9999]
-    N=Nodes()
-    K,Hac,lF=AtoKh(N)
-    Hact=biggestpair(Hac)
-    PlotD=np.zeros((len(quants),2))
-    j=0
-    for q in quants:
-        Hop=get_quant(q)
-        Hopt=biggestpair(Hop)
-        PlotD[j,0]=sum(Hopt)/sum(Hact)
-        N=Nodes(load_filename='Case_D_Quant_'+str(q)+'.npz')
-        a=0
-        d=0
-        for i in N:
-            a+=sum(i.balancing)
-            d+=i.mean*i.nhours
-        c=a/d
-        PlotD[j,1]=c
-        j+=1
-    save('./results/PlotD',PlotD)
-    return PlotD
-
-#h99=get_quant()
-#hopt=get_quant(0.9999999)
-#N=Nodes()
-#K,h1,L=AtoKh(N)
-#ha=h1[2:88]
-
-#N=Nodes(load_filename="Case_A_Beta_0.4.npz")
-#K,h2,L=AtoKh(N)
-#hdob=h99*.4
-
-#for i in range(size(L,0)):
-#    print L[i][0]+' & '+str(round(hopt[2*i]/1000,2)) +' & ' +str(round(h99[2*i]/1000,2)) +' & '+ str(round(hdob[2*i]/1000,2)) + ' & ' +str(round(ha[2*i]/1000,2)) +' \\\\'
-#    print '$\\blacktriangleleft$--- & '+ str(round(hopt[2*i+1]/1000,2)) +' & ' +str(round(h99[2*i+1]/1000,2)) +' & ' + str(round(hdob[2*i+1]/1000,2)) + ' & ' + str(round(ha[2*i+1]/1000,2)) +' \\\\'
-#ha[82]=0
-#print 'total capacity  ' + str(round(sum(biggestpair(hopt))/1000,2)) + ' & ' + str(round(sum(biggestpair(h99))/1000,2)) + ' & ' + str(round(sum(biggestpair(hdob))/1000,2)) + ' & ' + str(round(sum(biggestpair(ha))/1000,2)) 
-
-
-
-
-#Case_A(betas=[1.4,1.5,2.0,3.0,4.0,5.0])
-#Case_D(quants=[0.91,0.92,0.93,0.94,0.95,0.96,0.97,0.98,1.0])
-#Case_B(links=np.arange(16000.0,30000.1,1000.0))
-#Plot_A()
-#Plot_B()
-#Plot_C()
-#Plot_D()
-
-# plota=load('./results/PlotA.npy')
-# plotb=load('./results/PlotB.npy')
-# plotc=load('./results/PlotC.npy')
-# plotd=load('./results/PlotD.npy')
-
-# ax=subplot(1,1,1)
-# p1,=ax.plot(plota[:,0],plota[:,1],label='case A')
-# p2,=ax.plot(plotb[:,0],plotb[:,1],label='case B')
-# p3,=ax.plot(plotc[:,0],plotc[:,1],label='case C')
-# p4,=ax.plot(plotd[:,0],plotd[:,1],label='case D')
-# handles,labels=ax.get_legend_handles_labels()
-# ax.legend(handles,labels)
-# show()
-
-#N=Nodes()
-#K,H,lF=AtoKh(N)
-#h=H[2:88]
-#h0 = get_quant(.99)
-#print '99% Quantiles for European Connections'
-#print 'Link          Quant          Actual           Ratio'
-#for i in range(len(lF)):
-#	print lF[i][0] , '      ' , round(h0[2*i]) ,'     ' ,h[2*i] , '        ' , round(h[2*i]/h0[2*i],2)
-#	print '               ',round(h0[2*i+1])  ,'     ',h[2*i+1] ,'         ', round(h[2*i+1]/h0[2*i+1],2)
-
-# N = Nodes()
-# N,F,lF = zdcpf(N,coop=0,copper=1)
-# N.save_nodes('copper_nodes')
-#save('./results/'+'copper_flows',F)
