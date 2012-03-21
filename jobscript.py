@@ -362,14 +362,14 @@ def get_optimal_alphas(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',step=
 
     alpha = []    
     for i in arange(1,data.shape[0]-1,2): # loop over countries
-        wind = array(data[i][2:-2])
-        solar = array(data[i+1][2:-2])
+        wind = array(data[i][2:-4])
+        solar = array(data[i+1][2:-4])
         if (step == 3):
-            wind[-1] = data[i][-2] # take alternative values for 2050 in step 3
-            solar[-1] = data[i+1][-2]
+            wind[-1] = data[i][-4] # take alternative values for 2050 in step 3
+            solar[-1] = data[i+1][-4]
         elif (step == 4):
-            wind[-1] = data[i][-1] # take alternative values for 2050 in step 4
-            solar[-1] = data[i+1][-1]
+            wind[-1] = data[i][-3] # take alternative values for 2050 in step 4
+            solar[-1] = data[i+1][-3]
         gamma = solar[-1] + wind[-1]
         t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_country_data(ISO[(i-1)/2])    
         alpha_opt = get_optimal_mix_balancing(L,Gw,Gs,gamma,CS=None)
