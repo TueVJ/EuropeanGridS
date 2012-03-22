@@ -212,15 +212,19 @@ def generate_basepath_gamma_optimal_alpha(txtfile='../DataAndPredictionsGammaAlp
         # print 'solar: ',solar
 
         p_gamma = wind+solar
+        p_alpha = zeros_like(p_gamma)
         for j in range(len(p_gamma)): # avoid division by zero
             if p_gamma[j]<1.e-6:
                 p_gamma[j]=1.e-6
+            p_alpha[j] = wind[j]/p_gamma[j]
         i_data = find(~isnan(p_gamma))
         ISO = txtlabels[i][0:2]
-        yr, f_gamma, f_alpha_w = get_optimal_path_logistic_fit(p_year, p_gamma, ISO=ISO, year0=1980., year=year, CS=CS, rel_tol=rel_tol)
+        yr, f_gamma, f_alpha_w = get_optimal_path_logistic_fit(p_year[i_data], p_gamma[i_data], ISO=ISO, year0=1980., year=year, CS=CS, rel_tol=rel_tol)
         if plot_on==True:
-            plot_logistic_fit(year,f_gamma*f_alpha_w,p_year[i_data],wind[i_data],p_historical[i_data],txtlabel=txtlabels[i],txttitle=txttitles[i],step=step,combifit='optimal_alpha')
-            plot_logistic_fit(year,f_gamma*(1-f_alpha_w),p_year[i_data],solar[i_data],p_historical[i_data],txtlabel=txtlabels[i+1],txttitle=txttitles[i+1],step=step,combifit='optimal_alpha')
+            #plot_logistic_fit(year,f_gamma*f_alpha_w,p_year[i_data],wind[i_data],p_historical[i_data],txtlabel=txtlabels[i],txttitle=txttitles[i],step=step,combifit='optimal_alpha')
+            #plot_logistic_fit(year,f_gamma*(1-f_alpha_w),p_year[i_data],solar[i_data],p_historical[i_data],txtlabel=txtlabels[i+1],txttitle=txttitles[i+1],step=step,combifit='optimal_alpha')
+            plot_optimal_alpha_logistic_fit(year,f_gamma,f_alpha_w,p_year[i_data],p_gamma[i_data],p_alpha[i_data],p_historical[i_data],txtlabel=ISO,txttitle=txttitles[i][:-7],step=step)
+
 
         gamma.append(f_gamma)
         alpha_w.append(f_alpha_w)
@@ -301,22 +305,24 @@ def get_optimal_path_logistic_fit(p_year, p_gamma, ISO='DK', year0=1980., year=N
     
     ## Initial estimate of gamma vs year
     p_alpha_w_opt = get_optimal_path_balancing(L,Gw,Gs,p_gamma,CS=CS)
+    #print p_year,p_gamma,p_alpha_w_opt
     year, gamma, alpha_w = get_wind_solar_logistic_fit(p_year, p_gamma, p_alpha_w_opt, year0, year)
+    #print year, gamma, alpha_w
     for i in range(len(gamma)):
         if gamma[i] < 1.e-6:
             gamma[i] =1.e-6
     
     ## Iterate to get better match with the optimal mix. The gamma vs year estimate is used to provide a better and continous match to the optimal path. Otherwise few targets can result in large deviations from the optimal path.
     rel_err = 1000; rel_goodness_old = 1000; i=0
-    while rel_err>rel_tol or i>10:
+    while (rel_err>rel_tol or i<3):
         i+=1
         gamma_w_old = gamma*alpha_w
         
         alpha_w_opt = get_optimal_path_balancing(L,Gw,Gs,gamma,CS=CS)
         year, gamma, alpha_w = get_wind_solar_logistic_fit(year, gamma, alpha_w_opt, year0, year)
-        for i in range(len(gamma)):
-            if gamma[i] < 1.e-6:
-                gamma[i] = 1.e-6
+        # for i in range(len(gamma)):
+        #     if gamma[i] < 1.e-6:
+        #         gamma[i] = 1.e-6
 
         rel_goodness = amax(abs(gamma_w_old - gamma*alpha_w))
         rel_err = abs(rel_goodness - rel_goodness_old)
@@ -363,7 +369,7 @@ def get_optimal_mix_balancing(L, GW, GS, gamma=1., p_interval=0.01, CS=None, ret
     else:
         res_load_sum = lambda alpha_w: sum(get_positive(-get_policy_2_storage(mismatch(alpha_w),storage_capacity = CS)[0])) - alpha_w*0.001*sign(DefaultWind-.5)
     
-    alpha_w_opt = optimize.fmin(res_load_sum,0.5,disp=False) #unknown to my scipy...
+    alpha_w_opt = optimize.fmin(res_load_sum,0.5,disp=False)
 
     if alpha_w_opt>1.:
         alpha_w_opt = 1.
@@ -466,23 +472,26 @@ def plot_optimal_alpha_logistic_fit(year,f_gamma,f_alpha,p_year,p_gamma,p_alpha,
     #print 'p_year', p_year
     #print 'p_year[find(p_historical)]', p_year[find(p_historical)]
     #print 'p_gamma[find(p_historical)]', p_gamma[find(p_historical)]
-    pp_hist = plot(array(p_year[find(p_historical)]),array(p_gamma[find(p_historical)]),'go')
+    pp_hist = plot(p_year[find(p_historical)],p_gamma[find(p_historical)],'go')
     pp_target = plot(p_year[find(~p_historical)],p_gamma[find(~p_historical)],'ro')
-    pp_fit = plot(year,gamma_fit,'k--',lw=1.5)
+    pp_alpha_h = plot(p_year[find(p_historical)],p_gamma[find(p_historical)]*p_alpha[find(p_historical)],color='black',marker='.',ls='')
+    pp_alpha_t = plot(p_year[find(~p_historical)],p_gamma[find(~p_historical)]*p_alpha[find(~p_historical)],color='gray',marker='.',ls='')
+    pp_fit = plot(year,f_gamma,'k--',lw=1.5)
+    pp_fit_a = plot(year,f_gamma*f_alpha,color='gray',ls=':',lw=1.5)
     
     axis(xmin=amin(year),xmax=2053,ymin=0,ymax=1.3)
     
     xlabel('Reference year')
     ylabel(r'Share of total electricity demand ($\gamma_{\rm '+txtlabel+'}$)')
 
-    pp = concatenate([pp_hist,pp_target,pp_fit])
-    pp_text = ['Historical values','Target values','Logistic fit']
+    pp = concatenate([pp_hist,pp_target,pp_alpha_h,pp_alpha_t,pp_fit,pp_fit_a])
+    pp_text = [r'Historical total share $\gamma$','Targeted total share $\gamma$',r'Historical wind share $\gamma_{\rm W}$',r'Targeted wind share $\gamma_{\rm W}$',r'Combined logistic fit to $\gamma$',r'Optimal $\gamma_{\rm W}$ path']
     leg = legend(pp,pp_text,loc='upper left',title=txttitle)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
 
     #tight_layout(pad=.2)
-    figname = 'plot_optimal_alpha_logistic_fit_'
+    figname = 'plot_optimal_alpha_logistic_fit'
     figname += ('_step_%u_' % step) + txtlabel + '.png'
     save_figure(figname)
 

@@ -368,7 +368,7 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     return N,F
 
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):
-    outfile = 'results/linecap_quant_%.2f.npy' % quant
+    outfile = 'results/linecap_quant_%.4f.npy' % quant
     if os.path.exists(outfile):
         hs = np.load(outfile)
         return hs
@@ -381,7 +381,7 @@ def get_quant(quant=0.99,filename='results/copper_flows.npy'):
     b=np.zeros(len(flows))
     hs=np.zeros(len(flows))
     for i in range(len(flows)):
-        a=hist(flows[i],cumulative=True,bins=100,normed=True)
+        a=hist(flows[i],cumulative=True,bins=500,normed=True)
         for j in range(len(a[0])):
             if (a[0][j]>=quant):
                 hs[i]=a[1][j]
