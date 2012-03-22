@@ -10,7 +10,7 @@ def copper_flow():
     N.set_gammas(1.0)
     N,F = sdcpf(N,copper=1)
     N.save_nodes('copper_nodes')
-    save('./results/'+'copper_flows',F)
+    np.save('./results/'+'copper_flows',F)
 
 def gamma_homogenous(linecap='copper',start=None,stop=None):
     if (linecap == 'copper'):
@@ -50,7 +50,7 @@ def gamma_homogenous(linecap='copper',start=None,stop=None):
         name = ('homogenous_gamma_%.2f' % gamma)+'_linecap_'+linecap
         print name
         N.save_nodes_small(name+'_nodes')
-        save('./results/'+name+'_flows',F)
+        np.save('./results/'+name+'_flows',F)
 
 def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
     if (linecap == 'copper'):
@@ -93,7 +93,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         name = 'logfit_gamma_year_%u_linecap_%s_step_%u' % (year,linecap,step)
         print name
         N.save_nodes_small(name+'_nodes')
-        save('./results/'+name+'_flows',F)
+        np.save('./results/'+name+'_flows',F)
         del N
 
 def get_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecap='copper'):
@@ -117,7 +117,7 @@ def get_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecap='
         c=a/d
         Bvsg[j,1]=c
         j+=1
-    save(path+filename,Bvsg)
+    np.save(path+filename,Bvsg)
     return Bvsg
 
 def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','0.90Q','copper'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_homogenous_gamma.png'):
@@ -175,7 +175,7 @@ def get_flows_vs_gamma(prefix='homogenous_gamma',path='./results/',linecap='copp
         Fvsg[j,1]=a
         Fvsg[j,2]=b
         j+=1
-    save(filename,Fvsg)
+    np.save(filename,Fvsg)
     return Fvsg
 
 def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','0.90Q','copper'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='flows_vs_homogenous_gamma.png'):
@@ -230,7 +230,7 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
         j+=1
     filename = prefix+'_linecap_'+linecap+('_step_%u' % step)
     print filename
-    save('./results/Bvsg_'+filename,Bvsg)
+    np.save('./results/Bvsg_'+filename,Bvsg)
     return Bvsg
 
 def get_gamma_vs_year(path='./results/',prefix='logfit_gamma',step=2):
@@ -253,7 +253,7 @@ def get_gamma_vs_year(path='./results/',prefix='logfit_gamma',step=2):
             counter += weight[i]*gamma[i]
             denom += weight[i]
         gamma_vs_year.append(counter/denom)
-        save(path+filename,gamma_vs_year)
+        np.save(path+filename,gamma_vs_year)
     return gamma_vs_year
     
 
@@ -316,7 +316,7 @@ def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',s
         Fvsg[j,1]=a
         Fvsg[j,2]=b
         j+=1
-    save(filename,Fvsg)
+    np.save(filename,Fvsg)
     return Fvsg
 
 def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','0.90Q','copper'],title_=r"logistic growth of $\gamma\,$; final $\alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='flows_vs_year',step=2):
@@ -376,63 +376,6 @@ def get_optimal_alphas(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',step=
         alpha.append(alpha_opt)
         print ISO[(i-1)/2], alpha_opt
     return alpha
-
-
-def find_balancing_reduction_quantiles(reduction=0.90,eps=1.e-3,guess=0.98):
-    '''Loop over different quantile line capacities until the quantile
-    is found that leads to a reduction of balancing by <reduction>
-    percent, with a possible relative uncertainty of <eps>. Guess specifies
-    your first guess for the quantile.'''
-
-    N=Nodes(load_filename='homogenous_gamma_1.00_linecap_0.40Q_nodes.npz')
-    a=0.; b=0.
-    for i in N:
-        a+=sum(i.balancing)
-        b+=i.mean*i.nhours
-    balmax=a/b
-    N=Nodes(load_filename='copper_nodes.npz')
-    a=0.; b=0.
-    for i in N:
-        a+=sum(i.balancing)
-        b+=i.mean*i.nhours
-    balmin=a/b
-    baltarget=balmin+(1.-reduction)*(balmax-balmin)
-    step=0.01
-    olddist=0.
-    balreal=0.
-    N=Nodes()
-    N.set_alphas(0.7)
-    N.set_gammas(1.0)
-    quant=guess # initial guess
-    while True:
-        h=get_quant(quant)
-        N,F=sdcpf(N,h0=h)
-        a=0.; b=0.
-        for i in N:
-            a+=sum(i.balancing)
-            b+=i.mean*i.nhours
-        balreal=a/b
-        reldist=abs(1.-balreal/baltarget)
-        dist=baltarget-balreal
-        if (reldist < eps):
-            print '%15s %15s %15s %15s %15s' % ('distance','old distance','relative dist.','quantile','stepsize')
-            print '%15.8f %15.8f %15.4f %15.4f %15.6f' % (dist, olddist, reldist,quant,step)
-            del N
-            break
-        if (dist*olddist<0.): # sign change = we passed the perfect point! now reduce step size
-            step=step/2.
-        if dist<0:
-            quant +=step
-        if dist>0:
-            quant -=step
-        if (quant>=1.):
-            step=step/2.
-            quant=1.-step
-        print '%15s %15s %15s %15s %15s' % ('distance','old distance','relative dist.','quantile','stepsize')
-        print '%15.8f %15.8f %15.4f %15.4f %15.6f' % (dist, olddist, reldist,quant,step)
-        olddist=dist
-    del N
-    return quant, 1.-(balreal-balmin)/(balmax-balmin)
 
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):

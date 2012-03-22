@@ -400,3 +400,64 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
 #    b=hist(flows[link+1],bins=b,range=[flows[link+1].min(),-0.1],normed=1,histtype='stepfilled')
     a=hist(flows[link],bins=b,normed=1,histtype='stepfilled')
     show()
+
+
+def find_balancing_reduction_quantiles(reduction=0.90,eps=1.e-3,guess=0.98,step=0.01):
+    '''Loop over different quantile line capacities until the quantile
+    is found that leads to a reduction of balancing by <reduction>
+    times what is possible, with a relative uncertainty of
+    <eps>. <guess> specifies your first guess for the quantile.'''
+
+    N=Nodes(load_filename='homogenous_gamma_1.00_linecap_0.40Q_nodes.npz')
+    a=0.; b=0.
+    for i in N:
+        a+=sum(i.balancing)
+        b+=i.mean*i.nhours
+    balmax=a/b
+    del N
+    N=Nodes(load_filename='copper_nodes.npz')
+    a=0.; b=0.
+    for i in N:
+        a+=sum(i.balancing)
+        b+=i.mean*i.nhours
+    balmin=a/b
+    del N
+    baltarget=balmin+(1.-reduction)*(balmax-balmin)
+    print '%10s %10s %10s' % ('balmin','balmax','baltarget')
+    print '%10.7f %10.7f %10.7f' % (balmin,balmax,baltarget)
+    step=step
+    olddist=0.
+    balreal=0.
+    N=Nodes()
+    N.set_alphas(0.7)
+    N.set_gammas(1.0)
+    quant=guess # initial guess
+    while True:
+        h=get_quant(quant)
+        N,F=sdcpf(N,h0=h)
+        a=0.; b=0.
+        for i in N:
+            a+=sum(i.balancing)
+            b+=i.mean*i.nhours
+        balreal=a/b
+        reldist=abs(1.-balreal/baltarget)
+        dist=baltarget-balreal
+        if (reldist < eps):
+            print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
+            print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant,step,balreal)
+            del N
+            break
+        if (dist*olddist<0.): # sign change = we passed the perfect point! now reduce step size
+            step=step/2.
+        if dist<0:
+            quant +=step
+        if dist>0:
+            quant -=step
+        if (quant>=1.):
+            step=step/2.
+            quant=1.-step
+        print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
+        print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant,step,balreal)
+        olddist=dist
+    #del N
+    return quant, 1.-(balreal-balmin)/(balmax-balmin)
