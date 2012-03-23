@@ -255,6 +255,30 @@ def get_gamma_vs_year(path='./results/',prefix='logfit_gamma',step=2):
         gamma_vs_year.append(counter/denom)
         np.save(path+filename,gamma_vs_year)
     return gamma_vs_year
+
+
+def get_alpha_vs_year(path='./results/',prefix='logfit_gamma',step=2):
+    filename = prefix+'_alpha_vs_year_step_%u.npy' % step
+    if os.path.exists(path+filename):
+        alpha_vs_year = np.load(path+filename)
+        return alpha_vs_year
+    N = Nodes()
+    weight = []
+    for i in N:
+        weight.append(i.mean)
+    del N
+    alpha_vs_year = []
+    years=arange(1990,2050+1,1)
+    for year in years:
+        alpha=array(get_basepath_alpha(year,step=step))
+        counter = 0.
+        denom = 0.
+        for i in range(len(weight)):
+            counter += weight[i]*alpha[i]
+            denom += weight[i]
+        alpha_vs_year.append(counter/denom)
+        np.save(path+filename,alpha_vs_year)
+    return alpha_vs_year
     
 
 def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','0.90Q','copper'],title_=r"logistic growth of $\gamma\,$; final $\alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_year',step=2):

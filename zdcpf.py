@@ -260,7 +260,7 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
                     K_row_indices.extend([j,i])
                     h[2*L]=Ad[i,j]
                     h[2*L+1]=Ad[j,i]
-                    if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
+                    listFlows.append([str(N[j].label)+" to " +str(N[i].label), L])
                     L+=1
     K=coo_matrix((K_values,(K_row_indices,K_column_indices)))
     # rowstring='{'
@@ -368,7 +368,7 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     return N,F
 
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):
-    outfile = 'results/linecap_quant_%.4f.npy' % quant
+    outfile = 'results/linecap_quant_%.6f.npy' % quant
     if os.path.exists(outfile):
         hs = np.load(outfile)
         return hs
@@ -402,7 +402,7 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
     show()
 
 
-def find_balancing_reduction_quantiles(reduction=0.90,eps=1.e-3,guess=0.98,step=0.01):
+def find_balancing_reduction_quantiles(reduction=0.90,eps=1.e-3,guess=0.98,stepsize=0.01):
     '''Loop over different quantile line capacities until the quantile
     is found that leads to a reduction of balancing by <reduction>
     times what is possible, with a relative uncertainty of
@@ -425,7 +425,7 @@ def find_balancing_reduction_quantiles(reduction=0.90,eps=1.e-3,guess=0.98,step=
     baltarget=balmin+(1.-reduction)*(balmax-balmin)
     print '%10s %10s %10s' % ('balmin','balmax','baltarget')
     print '%10.7f %10.7f %10.7f' % (balmin,balmax,baltarget)
-    step=step
+    step=stepsize
     olddist=0.
     balreal=0.
     N=Nodes()
@@ -442,10 +442,10 @@ def find_balancing_reduction_quantiles(reduction=0.90,eps=1.e-3,guess=0.98,step=
         balreal=a/b
         reldist=abs(1.-balreal/baltarget)
         dist=baltarget-balreal
-        if (reldist < eps):
+        if (reldist < eps or step<0.00125):
             print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
             print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant,step,balreal)
-            del N
+            #del N
             break
         if (dist*olddist<0.): # sign change = we passed the perfect point! now reduce step size
             step=step/2.
@@ -453,11 +453,11 @@ def find_balancing_reduction_quantiles(reduction=0.90,eps=1.e-3,guess=0.98,step=
             quant +=step
         if dist>0:
             quant -=step
-        if (quant>=1.):
+        if (quant>=1.): # we are clearly overshooting -> go back
             step=step/2.
-            quant=1.-step
+            quant=0.9999
         print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
         print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant,step,balreal)
         olddist=dist
-    #del N
+    del N
     return quant, 1.-(balreal-balmin)/(balmax-balmin)
