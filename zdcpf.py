@@ -481,7 +481,7 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
                 print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
                 # if a filename is provided, save minimal nodes and flows
                 if (save_filename != None): 
-                    N.save_nodes(save_filename[i]+'_nodes')
+                    N.save_nodes_small(save_filename[i]+'_nodes')
                     np.save('./results/'+save_filename[i]+'_flows',F)
                 del F
                 #del N not here, but in same scope where it was constructed!
