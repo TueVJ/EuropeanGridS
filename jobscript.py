@@ -151,18 +151,19 @@ def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop
         skip_end=60
     years= arange(1990+skip,1990+skip_end,1)
     quantiles = []
+    last_quant=guess
     for year in years:
         gammas=array(get_basepath_gamma(year,step=step))
         alphas=array(get_basepath_alpha(year,step=step))
         print "Now calculating for year = ",year
         save_filename = []
         for i in range(len(red)):
-            save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,step,red[i])))
+            save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
         f_copper='logfit_gamma_year_%u_linecap_copper_step_%u_nodes.npz' % (year,step)
         f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
-        if (year >= 2025 and year <= 2030):
+        if (year >= 2016 and year <= 2020):
             last_quant=guess
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-3,guess=last_quant,stepsize=0.0025,file_copper=f_copper,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-3,guess=last_quant,stepsize=0.005,file_copper=f_copper,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
         quantiles.append(last_quant)
     qsave_file='logistic_gamma'
     if (start != None):
@@ -170,6 +171,7 @@ def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop
     if (stop != None):
         qsave_file += '_to_%u' % max(years)
     qsave_file += '_balred_quantiles'
+    qsave_file += '_step_%u' % step
     np.save('./results/'+qsave_file,quantiles)
 
 
