@@ -9,6 +9,7 @@ from time import time
 import sys, os
 from copy import deepcopy
 import ctypes as ct
+gc.set_debug(gc.DEBUG_UNCOLLECTABLE)
 
 colors_countries = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers.
 
@@ -31,6 +32,7 @@ class node:
         self.label = data['datalabel']
         self.mismatch = None
         self.colored_import = None #Set using self.set_colored_i_import()
+        del data.f
         data.close()
         self._update_()
         self.gen=np.zeros(self.nhours)        
@@ -380,7 +382,6 @@ def get_quant(quant=0.99,filename='results/copper_flows.npy'):
         flows.append(i*(i>0.))
         flows.append(-i*(i<0.))
     a=np.zeros(len(flows))
-    b=np.zeros(len(flows))
     hs=np.zeros(len(flows))
     for i in range(len(flows)):
         a=hist(flows[i],cumulative=True,bins=500,normed=True)
@@ -388,6 +389,7 @@ def get_quant(quant=0.99,filename='results/copper_flows.npy'):
             if (a[0][j]>=quant):
                 hs[i]=a[1][j]
                 break
+        clf()
     np.save(outfile,hs)
     return hs
 
@@ -405,6 +407,7 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
 
 
 def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,file_copper='copper_nodes.npz',file_notrans='homogenous_gamma_1.00_linecap_0.40Q_nodes.npz',gamma=1.,alpha=None,save_filename=None):
+
     '''Loop over different quantile line capacities until the quantile
     is found that leads to a reduction of balancing by <reduction>
     times what is possible, with a relative uncertainty of
@@ -420,7 +423,6 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
         print "Number of reduction quantile is %u, number of first guesses is %u!" % (len(reduction),len(guess))
         return
 
-    print gc.get_count()
     N=Nodes(load_filename=file_notrans)
     a=0.; b=0.
     for i in N:
@@ -452,12 +454,6 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
         quant=np.zeros(len(reduction))
         return quant
 
-    N=Nodes()
-    if (alpha == None):
-        N.set_alphas(0.7)
-    else:
-        N.set_alphas(alpha)
-    N.set_gammas(gamma)
     quant=guess # initial guess
     for i in range(len(reduction)):
         baltarget=balmin+(1.-reduction[i])*(balmax-balmin)
@@ -468,6 +464,14 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
         balreal=0.
         while True:
             h=get_quant(quant[i])
+            # memory leak when the same N is used over and
+            # over again (why?) -> del and new all the time
+            N=Nodes()
+            if (alpha == None):
+                N.set_alphas(0.7)
+            else:
+                N.set_alphas(alpha)
+            N.set_gammas(gamma)
             F=sdcpf(N,h0=h)
             a=0.; b=0.
             for j in N:
@@ -483,8 +487,10 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
                 if (save_filename != None): 
                     N.save_nodes_small(save_filename[i]+'_nodes')
                     np.save('./results/'+save_filename[i]+'_flows',F)
-                del F
-                #del N not here, but in same scope where it was constructed!
+                print 'gc.get_count before collection ',gc.get_count()
+                gc.collect()
+                print 'gc.get_count after collection ',gc.get_count()
+                del N #not here, but in same scope where it was constructed!
                 break
             if (dist*olddist<0.): # sign change = we passed the perfect point! now reduce step size
                 step=step/2.
@@ -498,5 +504,8 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
             print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
             print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
             olddist=dist
-    del N
+            print 'gc.get_count before collection ',gc.get_count()
+            gc.collect()
+            print 'gc.get_count after collection ',gc.get_count()
+            del N
     return quant #, 1.-(balreal-balmin)/(balmax-balmin)
