@@ -9,7 +9,6 @@ from time import time
 import sys, os
 from copy import deepcopy
 import ctypes as ct
-gc.set_debug(gc.DEBUG_UNCOLLECTABLE)
 
 colors_countries = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers.
 
