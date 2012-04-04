@@ -2,7 +2,8 @@ from zdcpf import *
 import scipy.optimize as optimize
 from logistic_gammas import *
 from Database_v2 import * # only needed for optimal alphas
-#import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import host_subplot
+import matplotlib.pyplot as plt
 
 
 ######################################################
@@ -83,7 +84,7 @@ def gamma_homogenous_balred(red=[0.50,0.90],guess=[0.885,0.98],start=None,stop=N
         if (gamma >= 0.32 and gamma <= 0.38):
             last_quant=guess
         last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-3,guess=last_quant,stepsize=0.0025,file_copper=f_copper,file_notrans=f_notrans,gamma=gamma,alpha=None,save_filename=save_filename)
-        quantiles.append(last_quant)
+        quantiles.append(np.array(last_quant).copy())
     qsave_file='homogenous_gamma'
     if (start != None):
         qsave_file += '_from_%.2f' % min(gvals)
@@ -148,7 +149,7 @@ def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop
     if stop != None:
         skip_end = stop
     else:
-        skip_end=60
+        skip_end=60+1
     years= arange(1990+skip,1990+skip_end,1)
     quantiles = []
     last_quant=guess
@@ -161,10 +162,11 @@ def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop
             save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
         f_copper='logfit_gamma_year_%u_linecap_copper_step_%u_nodes.npz' % (year,step)
         f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
-        if (year >= 2016 and year <= 2020):
+        if (year == 2018): # first year where bal. becomes significant
             last_quant=guess
         last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-3,guess=last_quant,stepsize=0.005,file_copper=f_copper,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
-        quantiles.append(last_quant)
+        quantiles.append(np.array(last_quant).copy())
+        print quantiles
     qsave_file='logistic_gamma'
     if (start != None):
         qsave_file += '_from_%u' % min(years)
@@ -426,10 +428,26 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
 
 def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','0.90Q','copper'],title_=r"logistic growth of $\gamma\,$; final $\alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'90$\,$% quantile line capacities','copper plate'],picname='balancing_vs_year',step=2):
     figure(1); clf()
+    #calculate average gamma as weighted mean of all countries for all years
+    gamma_vs_year= array(get_gamma_vs_year(step=step))
+    host = host_subplot(111)
+
+    par = host.twin()
+    axis(xmin=1990,xmax=2050,ymin=0.,ymax=0.3)
+
+    host.set_xlabel('year')
+    host.set_ylabel(r'excess balancing/av.h.l. (bal.$ - (1-\gamma)$)')
+    par.set_xlabel(r'effective $\gamma$')
+    gamma_ticks = arange(1990,2050+1,5)
+    gamma_labels = ['%.3f' % gamma_vs_year[i-1990] for i in gamma_ticks]
+    for i in range(len(gamma_ticks)):
+        print gamma_ticks[i], gamma_labels[i]
+    par.set_xticks(gamma_ticks)
+    par.set_xticklabels(gamma_labels,rotation=30,shift=3)
+
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
     pp = []
     i=0
-    #calculate average gamma as weighted mean of all countries for all years
     for linecap in linecaps:
         name = prefix+'_linecap_'+linecap+('_step_%u' % step)
         fname = 'Bvsg_'+name+'.npy'
@@ -441,16 +459,12 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
         pp_x = array(data[:,0])
         pp_y = array(data[:,1]) # balancing
         # excess balancing is not so easy here
-        gamma_vs_year= array(get_gamma_vs_year(step=step))
         pp_y = pp_y - (1.-gamma_vs_year)
-        pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp_ = host.plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
         i += 1
 
-    title(title_)
-    axis(xmin=1990,xmax=2050,ymin=0.,ymax=0.3)
-    xlabel('year')
-    ylabel(r'excess balancing/av.h.l. (bal.$ - (1-\gamma)$)')
+    #title(title_)
 
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left');
