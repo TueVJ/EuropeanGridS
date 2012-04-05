@@ -83,11 +83,12 @@ def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogen
     guessfile += '.npy'
     guesses = np.load(path+guessfile)
     cfile = copper_file + '.npy'
-    balmaxes=np.load(path+cfile)[:,1]
-    print balmaxes
+    balmins=np.load(path+cfile)[:,1]
+    #print balmins
     nfile = notrans_file + '.npy'
-    balmins = np.load(path+nfile)[:,1]
-    print balmins
+    balmaxes = np.load(path+nfile)[:,1]
+    #print balmaxes
+    last_quant=np.zeros(2)
     for gval in gvals:
         gamma = gval*0.01
         print "Now calculating for gamma = ",gamma
@@ -98,8 +99,9 @@ def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogen
         balmin=balmins[gval]
         guess=guesses[gval,:]        
         f_notrans='homogenous_gamma_%.2f_linecap_0.40Q_nodes.npz' % gamma
-        if (30 <= gval and gval <= 32): guess=[0.82,0.9]
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmax,notrans=balmin,file_notrans=f_notrans,gamma=gamma,alpha=0.7,save_filename=save_filename)
+        if (gval == 26): guess=[0.82,0.9]
+        if (last_quant[0] !=0.): guess=last_quant
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gamma,alpha=0.7,save_filename=save_filename)
         quantiles.append(np.array(last_quant).copy())
     qsave_file='homogenous_gamma'
     if (start != None):
@@ -171,9 +173,10 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
     guessfile += ('_step_%u' % step) + '.npy'
     guesses = np.load(path+guessfile)
     cfile = copper_file + ('_step_%u.npy' % step)
-    balmaxes=np.load(path+cfile)[:,1]
+    balmins=np.load(path+cfile)[:,1]
     nfile = notrans_file + ('_step_%u.npy' % step)
-    balmins = np.load(path+nfile)[:,1]
+    balmaxes = np.load(path+nfile)[:,1]
+    last_quant = np.zeros(2)
     for year in years:
         gammas=array(get_basepath_gamma(year,step=step))
         alphas=array(get_basepath_alpha(year,step=step))
@@ -181,12 +184,13 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
         save_filename = []
         for i in range(len(red)):
             save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
-        f_notrans='logfit_gamma_%.2f_linecap_0.40Q_step_%u_nodes.npz' % (gamma,step)
+        f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
         guess=guesses[year-1990,:]
         if (2014 <= year and year <= 2017): guess=[0.82,0.9]
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.00125,copper=balmax,notrans=balmin,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
+        if (last_quant[0] !=0): guess=last_quant
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
         quantiles.append(np.array(last_quant).copy())
         print quantiles
     qsave_file='logistic_gamma'
@@ -446,6 +450,62 @@ def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantil
                     inv += get_positive(h[l]-h0[l])
                 linecaps[i,j]=inv
     return linecaps
+
+
+def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step=2,linecap='copper'):
+    outfile='mismatch_and_curtailment_linecap_%s_step_%u.npy' % (linecap,step)
+    if os.path.exists(path+outfile):
+        data=np.load(path+outfile)
+        years=data[:,0]
+        curtailment=data[:,1]
+        pos_mismatch=data[:,2]
+        return years,curtailment,pos_mismatch
+        
+    years=arange(1990,2050+1,1)
+    curtailment=np.zeros(len(years))
+    pos_mismatch=np.zeros(len(years))
+    for year in years:
+        fname='logfit_gamma_year_%u' % year
+        if (linecap.find('balred') >= 0): fname += '_'+linecap
+        else: fname += '_linecap_'+linecap
+        fname += '_step_%u_nodes.npz' % step
+        N=Nodes(load_filename=fname)
+        nhours=N[0].nhours
+        curt=np.zeros(nhours)
+        alpha=0.
+        gamma=0.
+        load=0.
+        for snode in N:
+            if (snode.label==ISO):
+                curt=snode.curtailment
+                alpha=snode.alpha
+                gamma=snode.gamma
+                load=snode.mean*nhours
+                break
+        del N
+        print 'alpha: ',alpha
+        print 'gamma: ',gamma
+        tot_curt=0.0
+        for i in range(nhours): tot_curt += curt[i]
+        curtailment[year-1990]=tot_curt/load
+        print 'curtailment: ',curtailment[year-1990]
+
+        fname='ISET_country_'+ISO+'.npz'
+        tnode=node(datpath,fname,0)
+        tnode.set_gamma(gamma)
+        tnode.set_alpha(alpha)
+        mism=snode.mismatch
+        tot_mism=0.0
+        for i in range(nhours): tot_mism += get_positive(mism[i])
+        pos_mismatch[year-1990]=tot_mism/load
+        print 'pos_mismatch: ',pos_mismatch[year-1990]
+
+    print years
+    print curtailment
+    print pos_mismatch
+    data=np.array([np.array(years),np.array(curtailment),np.array(pos_mismatch)]).T
+    np.save(path+outfile,data)
+    return years,curtailment,pos_mismatch
 
 
 ######################################################
@@ -743,6 +803,33 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
     legend()
 
     picname = 'investment_vs_year' + ('_step_%u' %step) + '.png'
+    save_figure(picname)
+
+
+def plot_export_and_curtailment(ISO='DK',linecap='copper',step=2,label=['desired export','realizable export'],title_='Export opportunities for Denmark'):
+    years,curtailment,pos_mismatch=get_export_and_curtailment(ISO=ISO,linecap=linecap, step=step)
+    fig=figure(1); clf()
+    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    pp = []
+    pp_x=years
+    pp_y=pos_mismatch
+    pp_=plot(pp_x,pp_y,lw=1.5,color=cl[0])
+    pp.extend(pp_)
+    pp_y=pos_mismatch-curtailment
+    pp_=plot(pp_x,pp_y,lw=1.5,color=cl[1])
+    pp.extend(pp_)
+    pp_label=label
+    leg=legend(pp,pp_label,loc='upper left',title='%s, step %u' % (linecap,step))
+    axis(xmin=1990,xmax=2050,ymin=0,ymax=.3)
+    xlabel('year')
+    ylabel(r'overproduction/av.l.h.')
+    fig.suptitle(title_)
+
+    ltext  = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+    legend()
+
+    picname = 'export_vs_year'+'_'+linecap + ('_step_%u' %step) + '.png'
     save_figure(picname)
 
 
