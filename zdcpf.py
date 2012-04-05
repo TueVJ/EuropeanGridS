@@ -479,7 +479,7 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
             balreal=a/b
             reldist=abs(1.-balreal/baltarget)
             dist=baltarget-balreal
-            if (reldist < eps or step<0.00125):
+            if (reldist < eps or step<0.0002):
                 print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
                 print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
                 # if a filename is provided, save minimal nodes and flows

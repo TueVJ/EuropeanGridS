@@ -19,7 +19,7 @@ def copper_flow():
     np.save('./results/'+'copper_flows',F)
 
 
-def gamma_homogenous(linecap='copper',start=None,stop=None):
+def gamma_homogenous(linecap='copper',start=None,stop=None,alpha=None,gpercent=None):
     if (linecap == 'copper'):
         copper = 1
         h0 = None
@@ -47,14 +47,22 @@ def gamma_homogenous(linecap='copper',start=None,stop=None):
         skip_end=101
 
     N = Nodes()
-    N.set_alphas(0.7)
-    gvals= arange(skip,skip_end,1)
+    if (alpha==None):
+        N.set_alphas(0.7)
+    else:
+        N.set_alphas(alpha)
+    if (gpercent==None):
+        gvals= arange(skip,skip_end,1)
+    else:
+        gvals=gpercent
     for gval in gvals:
         gamma = gval*0.01
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
         F = sdcpf(N,copper=copper,h0=h0)
         name = ('homogenous_gamma_%.2f' % gamma)+'_linecap_'+linecap
+        if (alpha != None):
+            name += '_alpha_%.2f' % alpha
         print name
         N.save_nodes_small(name+'_nodes')
         np.save('./results/'+name+'_flows',F)
@@ -139,7 +147,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop=None):
+def gamma_logfit_balred(red=[0.50,0.90],guessfile='./results/logistic_gamma_balred_quantiles',step=2,start=None,stop=None):
         
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
@@ -152,7 +160,8 @@ def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop
         skip_end=60+1
     years= arange(1990+skip,1990+skip_end,1)
     quantiles = []
-    last_quant=guess
+    guessfile += ('_step_%u' % step) + '.npy'
+    guesses = np.load(guessfile)
     for year in years:
         gammas=array(get_basepath_gamma(year,step=step))
         alphas=array(get_basepath_alpha(year,step=step))
@@ -162,9 +171,9 @@ def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop
             save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
         f_copper='logfit_gamma_year_%u_linecap_copper_step_%u_nodes.npz' % (year,step)
         f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
-        if (year == 2018): # first year where bal. becomes significant
-            last_quant=guess
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-3,guess=last_quant,stepsize=0.005,file_copper=f_copper,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
+        guess=guesses[year-1990,:]
+        if (2014 <= year and year <= 2017): guess=[0.82,0.9]
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.00125,file_copper=f_copper,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
         quantiles.append(np.array(last_quant).copy())
         print quantiles
     qsave_file='logistic_gamma'
@@ -172,7 +181,7 @@ def gamma_logfit_balred(red=[0.50,0.90],guess=[0.80,0.92],step=2,start=None,stop
         qsave_file += '_from_%u' % min(years)
     if (stop != None):
         qsave_file += '_to_%u' % max(years)
-    qsave_file += '_balred_quantiles'
+    qsave_file += '_balred_quantiles_refined'
     qsave_file += '_step_%u' % step
     np.save('./results/'+qsave_file,quantiles)
 
@@ -375,6 +384,27 @@ def get_optimal_alphas(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',step=
     return alpha
 
 
+def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles',step=2):
+    name = prefix + ('_step_%u' % step) + '.npy'
+    quantiles=transpose(np.load(path+name))
+    #print shape(quantiles)
+    N=Nodes()
+    km,kv,h0,lf=AtoKh(N) # h0: linecap today
+    del N
+    linecaps=np.zeros((2,60+1))
+    for i in range(2):
+        for j in range(60+1):
+            if (quantiles[i,j] == 0):
+                linecaps[i,j]=0
+            else:
+                h=get_quant(quantiles[i,j])
+                inv=0.
+                for l in range(len(h)):
+                    inv += get_positive(h[l]-h0[l])
+                linecaps[i,j]=inv
+    return linecaps
+
+
 ######################################################
 ########### Plot the results #########################
 ######################################################
@@ -563,6 +593,59 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     legend()
 
     picname = picname +'_'+ prefix + ('_step_%u' %step) + '.png'
+    save_figure(picname)
+
+
+def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles',step=2,label=['needed for 90 % balancing reduction','needed for 50 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+    linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
+    fig=figure(1); clf()
+    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    pp = []
+    pp_x=arange(1990,2050+1,1)
+    for i in range(2):
+        pp_y=linecaps[i,:]*1e-5
+        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp.extend(pp_)
+    pp_label=label
+    leg=legend(pp,pp_label,title=title_leg,loc='upper left')
+    axis(xmin=1990,xmax=2050,ymin=0,ymax=10.)
+    xlabel('year')
+    ylabel(r'necessary total new line capacities/$10^5\,$MW')
+
+    ltext  = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+    legend()
+
+    picname = 'linecaps_vs_year' + ('_step_%u' %step) + '.png'
+    save_figure(picname)
+
+
+def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles',step=2,label=['needed for 90 % balancing reduction','needed for 50 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+    linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
+    fig=figure(1); clf()
+    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    pp = []
+    pp_x=arange(1990,2050+1,1)
+    for i in range(2):
+        caps=linecaps[i,:]*1e-5
+        # get positive part of derivative
+        pp_y=np.zeros(len(caps))
+        for j in range(len(pp_y)):
+            if j==0: continue
+            pp_y[j] = get_positive(caps[j]-max(caps[:j]))
+        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp.extend(pp_)
+    pp_label=label
+    leg=legend(pp,pp_label,title=title_leg,loc='upper left')
+    axis(xmin=1990,xmax=2050,ymin=0,ymax=2.)
+    xlabel('year')
+    ylabel(r'necessary total new line capacities/$10^5\,$MW per year')
+
+    ltext  = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+    legend()
+
+    picname = 'investment_vs_year' + ('_step_%u' %step) + '.png'
     save_figure(picname)
 
 
