@@ -405,7 +405,7 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
     show()
 
 
-def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,file_copper='copper_nodes.npz',file_notrans='homogenous_gamma_1.00_linecap_0.40Q_nodes.npz',gamma=1.,alpha=None,save_filename=None):
+def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None):
 
     '''Loop over different quantile line capacities until the quantile
     is found that leads to a reduction of balancing by <reduction>
@@ -422,20 +422,8 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
         print "Number of reduction quantile is %u, number of first guesses is %u!" % (len(reduction),len(guess))
         return
 
-    N=Nodes(load_filename=file_notrans)
-    a=0.; b=0.
-    for i in N:
-        a+=sum(i.balancing)
-        b+=i.mean*i.nhours
-    balmax=a/b
-    del N
-    N=Nodes(load_filename=file_copper)
-    a=0.; b=0.
-    for i in N:
-        a+=sum(i.balancing)
-        b+=i.mean*i.nhours
-    balmin=a/b
-    del N
+    balmax=copper
+    balmin=notrans
 
     # check if there is a significant reduction possible at all
     if (2.*(balmax-balmin)/(balmax+balmin)<eps):
