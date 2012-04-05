@@ -1,0 +1,13 @@
+#.gitignore
+*.pyc
+*.o
+*.so
+*testsolver
+*~
+run*
+Documentation/docu.aux
+Documentation/docu.log
+Documentation/111118*
+data
+figures
+results
