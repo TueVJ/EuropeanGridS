@@ -453,7 +453,7 @@ def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantil
 
 
 def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step=2,linecap='copper'):
-    outfile='mismatch_and_curtailment_linecap_%s_step_%u.npy' % (linecap,step)
+    outfile='mismatch_and_curtailment_linecap_%s_step_%u_%s.npy' % (linecap,step,ISO)
     if os.path.exists(path+outfile):
         data=np.load(path+outfile)
         years=data[:,0]
@@ -610,7 +610,7 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
     save_figure(picname)
 
 
-def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
@@ -753,7 +753,7 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     save_figure(picname)
 
 
-def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation",title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
@@ -769,6 +769,7 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     xlabel('year')
     ylabel(r'necessary total new line capacities/$10^5\,$MW')
 
+    fig.suptitle(title_,fontsize=14,y=0.96)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
@@ -777,7 +778,7 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     save_figure(picname)
 
 
-def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation",title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
@@ -798,6 +799,7 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
     xlabel('year')
     ylabel(r'necessary total new line capacities/$10^5\,$MW per year')
 
+    fig.suptitle(title_,fontsize=14,y=0.96)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
@@ -806,30 +808,40 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
     save_figure(picname)
 
 
-def plot_export_and_curtailment(ISO='DK',linecap='copper',step=2,label=['desired export','realizable export'],title_='Export opportunities for Denmark'):
+def plot_export_and_curtailment(ISO='DK',linecap='copper',step=2,label=['overproduction','realizable export'],title_='Export opportunities for '):
     years,curtailment,pos_mismatch=get_export_and_curtailment(ISO=ISO,linecap=linecap, step=step)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
-    pp = []
     pp_x=years
     pp_y=pos_mismatch
-    pp_=plot(pp_x,pp_y,lw=1.5,color=cl[0])
-    pp.extend(pp_)
+    #pp_=plot(pp_x,pp_y,lw=1.5,color=cl[0])
+    pp_=bar(pp_x-0.35,pp_y,color=cl[2])
+    pp1=pp_
     pp_y=pos_mismatch-curtailment
-    pp_=plot(pp_x,pp_y,lw=1.5,color=cl[1])
-    pp.extend(pp_)
+    #pp_=plot(pp_x,pp_y,lw=1.5,color=cl[1])
+    pp_=bar(pp_x-0.35,pp_y,color=cl[0])
+    pp2=pp_
     pp_label=label
-    leg=legend(pp,pp_label,loc='upper left',title='%s, step %u' % (linecap,step))
-    axis(xmin=1990,xmax=2050,ymin=0,ymax=.3)
+    title_leg=''
+    if (linecap == 'copper'): title_leg+= 'Copper plate transmission'
+    if (linecap == 'today'): title_leg+= 'Transmission capacities of today'
+    if (linecap == '0.40Q'): title_leg+= 'No transmission'
+    if (linecap == 'balred_0.50'): title_leg+= 'Transmission lines to reduce balancing by 50 %'
+    if (linecap == 'balred_0.90'): title_leg+= 'Transmission lines to reduce balancing by 90 %'
+    if (step == 2): title_leg+= '\n'+r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
+    if (step == 3): title_leg+= '\n'+r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+    leg=legend((pp1[0],pp2[0]),pp_label,loc='upper left',title=title_leg)
+    axis(xmin=1990,xmax=2050.5,ymin=0,ymax=.3)
     xlabel('year')
     ylabel(r'overproduction/av.l.h.')
-    fig.suptitle(title_)
+    title_ += ISO2name(ISO=ISO)
+    fig.suptitle(title_,fontsize=14,y=0.96)
 
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    picname = 'export_vs_year'+'_'+linecap + ('_step_%u' %step) + '.png'
+    picname = 'export_vs_year'+'_'+linecap + ('_step_%u' %step) + ('_%s.png' % ISO)
     save_figure(picname)
 
 
