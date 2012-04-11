@@ -212,8 +212,8 @@ def get_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecap='
     if (linecap.find('balred') >= 0): filename += '_'+linecap + '.npy'
     else: filename += ('_linecap_%s.npy' % linecap)
     if os.path.exists(path+filename):
-        Fvsg=np.load(path+filename)
-        return Fvsg
+        Bvsg=np.load(path+filename)
+        return Bvsg
     gammas=arange(0,1.01,0.01)
     Bvsg=np.zeros((len(gammas),2))
     j=0
@@ -269,6 +269,16 @@ def get_flows_vs_gamma(prefix='homogenous_gamma',path='./results/',linecap='copp
 
 
 def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
+    filename = prefix
+    if (linecap.find('balred')>=0):
+        filename += '_'+linecap
+    else:
+        filename += '_linecap_'+linecap
+    filename +=('_step_%u' % step)
+    print filename
+    if os.path.exists('./results/Bvsg_'+filename+'.npy'):
+        Bvsg=np.load('./results/Bvsg_'+filename+'.npy')
+        return Bvsg
     years=arange(1990,2050+1,1)
     Bvsg=np.zeros((len(years),2))
     j=0
@@ -290,13 +300,6 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
         c=a/d
         Bvsg[j,1]=c
         j+=1
-    filename = prefix
-    if (linecap.find('balred')>=0):
-        filename += '_'+linecap
-    else:
-        filename += '_linecap_'+linecap
-    filename +=('_step_%u' % step)
-    print filename
     np.save('./results/Bvsg_'+filename,Bvsg)
     return Bvsg
 
@@ -325,7 +328,7 @@ def get_gamma_vs_year(path='./results/',prefix='logfit_gamma',step=2):
     return gamma_vs_year
 
 
-def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles'):
+def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined'):
     name = prefix + '.npy'
     quantiles=transpose(np.load(path+name))
     #print shape(quantiles)
@@ -513,21 +516,13 @@ def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step
 ######################################################
 
 def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",picname='balancing_vs_homogenous_gamma.png'):
-    figure(1); clf()
+    fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
     pp = []
     i=0
     for cap in linecaps:
-        fname = 'Bvsg_'+prefix
-        if cap.find('balred')>=0:
-            fname += '_'+cap+'.npy'
-        else:
-            fname += '_linecap_'+cap+'.npy'
-        print 'Processing '+fname
-        if not os.path.exists(path+fname):
-            data = get_balancing_vs_gamma(linecap=cap)
-        else:
-            data = np.load(path+fname)
+        print 'Processing '+cap
+        data = get_balancing_vs_gamma(linecap=cap)
         pp_x = array(data[:,0])
         pp_y = array(data[:,1]) # balancing
         pp_y = pp_y - (1-pp_x)  # excess balancing
@@ -535,7 +530,7 @@ def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps
         pp.extend(pp_)
         i += 1
 
-    title(title_)
+    fig.suptitle(title_,fontsize=14,y=0.96)
     axis(xmin=0,xmax=1,ymin=0,ymax=0.3)
     xlabel('share $\gamma$ of VRES in total electricity production')
     ylabel(r'excess balancing/av.h.l. (bal.$ - (1-\gamma)$)')
@@ -550,7 +545,7 @@ def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps
 
 
 def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_homogenous_gamma.png'):
-    figure(1); clf()
+    fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
     pp = []
     i=0
@@ -571,7 +566,7 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
         pp.extend(pp_)
         i += 1
 
-    title(title_)
+    fig.suptitle(title_,fontsize=14,y=0.96)
     axis(xmin=0,xmax=1,ymin=-0.05,ymax=5)
     xlabel('share $\gamma$ of VRES in total electricity production')
     ylabel(r'sum of absolute flows/$10^9\,$MW')
@@ -585,7 +580,7 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
     save_figure(picname)
     
 
-def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles',label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction']):
+def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction']):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
@@ -602,6 +597,7 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
     xlabel('gamma')
     ylabel(r'necessary total new line capacities/$10^5\,$MW')
 
+    fig.suptitle(title_,fontsize=14,y=0.96)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
@@ -610,7 +606,7 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
     save_figure(picname)
 
 
-def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
@@ -627,6 +623,8 @@ def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_q
         pp.extend(pp_)
     pp_label=label
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
+
+    fig.suptitle(title_,fontsize=14,y=0.96)
     axis(xmin=0,xmax=1,ymin=0,ymax=2.)
     xlabel('gamma')
     ylabel(r'necessary total new line capacities/$10^5\,$MW per gamma')
@@ -639,10 +637,12 @@ def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_q
     save_figure(picname)
 
 
-def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"Logistic growth of wind and solar generation",title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='balancing_vs_year',step=2):
+def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"Logistic growth of wind and solar generation",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='balancing_vs_year',step=2):
+
     fig=figure(1); clf()
     #calculate average gamma as weighted mean of all countries for all years
     gamma_vs_year= array(get_gamma_vs_year(step=step))
+    gamma_hom=arange(0.,1.01,0.01)
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     host = host_subplot(111)
 
@@ -654,8 +654,8 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     par.set_xlabel(r'effective $\gamma$')
     gamma_ticks = arange(1990,2050+1,5)
     gamma_labels = ['%.3f' % gamma_vs_year[i-1990] for i in gamma_ticks]
-    for i in range(len(gamma_ticks)):
-        print gamma_ticks[i], gamma_labels[i]
+    # for i in range(len(gamma_ticks)):
+    #     print gamma_ticks[i], gamma_labels[i]
     par.set_xticks(gamma_ticks)
     par.set_xticklabels(gamma_labels,rotation=30)#,shift=3)
 
@@ -664,7 +664,6 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     i=0
     for linecap in linecaps:
         if (linecap.find('balred')>=0):
-            print 'balred'
             name=prefix+'_'+linecap
         else:
             name = prefix+'_linecap_'+linecap
@@ -681,24 +680,36 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
         pp_y = pp_y - (1.-gamma_vs_year)
         pp_ = host.plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
+        # plot homogenous balancing for comparison
+        bal_hom=get_balancing_vs_gamma(linecap=linecap)
+        bal_hom=bal_hom[:,1]
+        bal_hom_eff=np.interp(gamma_vs_year,gamma_hom,bal_hom)
+        pp_y = bal_hom_eff - (1.-gamma_vs_year)
+        pp_ = host.plot(pp_x,pp_y,lw=1.5,color=cl[i],ls='--')
         i += 1
 
     fig.suptitle(title_,fontsize=14,y=0.96)
 
+    title_leg=''
+    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left',title=title_leg);
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
+    text(1991,0.03,'dashed lines indicate corresponding homogenous',fontsize='small',fontstyle='italic')
+    text(1991,0.015,'gamma-growth balancing',fontsize='small',fontstyle='italic')
 
     picname = picname +'_'+ prefix + ('_step_%u' %step) + '.png'
     save_figure(picname)
 
 
-def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"Logistic growth of wind and solar generation",title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_year',step=2):
+def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"Logistic growth of wind and solar generation",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_year',step=2):
     fig=figure(1); clf()
     #calculate average gamma as weighted mean of all countries for all years
     gamma_vs_year= array(get_gamma_vs_year(step=step))
+    gamma_hom=arange(0.,1.01,0.01)
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     host = host_subplot(111)
 
@@ -710,8 +721,8 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     par.set_xlabel(r'effective $\gamma$')
     gamma_ticks = arange(1990,2050+1,5)
     gamma_labels = ['%.3f' % gamma_vs_year[i-1990] for i in gamma_ticks]
-    for i in range(len(gamma_ticks)):
-        print gamma_ticks[i], gamma_labels[i]
+    # for i in range(len(gamma_ticks)):
+    #     print gamma_ticks[i], gamma_labels[i]
     par.set_xticks(gamma_ticks)
     par.set_xticklabels(gamma_labels,rotation=30)#,shift=3)
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
@@ -720,7 +731,6 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     #calculate average gamma as weighted mean of all countries for all years
     for linecap in linecaps:
         if (linecap.find('balred')>=0):
-            print 'balred'
             name=prefix+'_'+linecap
         else:
             name = prefix+'_linecap_'+linecap
@@ -735,10 +745,18 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
         pp_y = array(data[:,1])/1.e9
         pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
+        fl_hom=get_flows_vs_gamma(linecap=linecap)
+        fl_hom=fl_hom[:,1]
+        fl_hom_eff=np.interp(gamma_vs_year,gamma_hom,fl_hom)
+        pp_y = fl_hom_eff/1.e9
+        pp_ = host.plot(pp_x,pp_y,lw=1.5,color=cl[i],ls='--')
         i += 1
 
     fig.suptitle(title_,fontsize=14,y=0.96)
 
+    title_leg=''
+    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left',title=title_leg);
     axis(xmin=1990,xmax=2050,ymin=-0.05,ymax=5.)
@@ -748,12 +766,14 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
+    text(1991,0.4,'dashed lines indicate corresponding homogenous',fontsize='small',fontstyle='italic')
+    text(1991,0.15,'gamma-growth flows',fontsize='small',fontstyle='italic')
 
     picname = picname +'_'+ prefix + ('_step_%u' %step) + '.png'
     save_figure(picname)
 
 
-def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation",title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation"):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
@@ -764,6 +784,9 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
         pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
     pp_label=label
+    title_leg=''
+    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=10.)
     xlabel('year')
@@ -778,7 +801,7 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     save_figure(picname)
 
 
-def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation",title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation"):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
     fig=figure(1); clf()
     cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
@@ -794,6 +817,9 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
         pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
     pp_label=label
+    title_leg=''
+    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=2.)
     xlabel('year')
