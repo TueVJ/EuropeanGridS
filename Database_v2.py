@@ -283,6 +283,16 @@ def get_ISET_country_names(filename='ISET2ISO_country_codes.npy',path='./setting
         print '{0}\t{1}\t{2}\t{3}'.format(i, table[i]['ISO'], table[i]['ISET'], table[i]['name'])
     sys.stdout.flush()
 
+
+def ISO2name(ISO='DK',filename='ISET2ISO_country_codes.npy',path='./settings/'):
+
+    table = np.load(path+filename)
+
+    name=table['name'][find(table['ISO']==ISO)][0]
+
+    return name
+
+
 def save_ISET_country_codes():
 
 	names = ['Austria','Belgium','Bulgaria','Bosnia and Herzegovina','Czech Republic','Switzerland','Germany','Denmark','Spain','France','Finland','Great Britain','Greece','Hungary','Italy','Ireland','Croatia','Luxembourg','Norway','Netherlands','Portugal','Poland','Romania','Sweden','Slovakia','Slovenia','Serbia']
