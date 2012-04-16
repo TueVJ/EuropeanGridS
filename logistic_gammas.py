@@ -535,9 +535,10 @@ def sort_to_node_order(arr):
     return sortarr
 
 
-def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+'''def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
     figure(fignumber)
     savefig(path + figname, dpi=dpi)
     print 'Saved figure:',path + figname
     sys.stdout.flush()
+'''

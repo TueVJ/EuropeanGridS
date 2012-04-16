@@ -165,14 +165,14 @@ class Nodes:
 
         npzobj = load(path+load_filename)
         
-        # for attribute in npzobj.files:
-        #    for i in arange(len(self)):
-        #        print self.cache[i],attribute,npzobj[attribute][i]
-        #        setattr(self.cache[i],attribute,npzobj[attribute][i])
+        for attribute in npzobj.files:
+           for i in arange(len(self)):
+               # print self.cache[i],attribute,npzobj[attribute][i]
+               setattr(self.cache[i],attribute,npzobj[attribute][i])
 
-        for i in arange(len(self)):
-            setattr(self.cache[i],'balancing',npzobj['balancing'][i])
-            setattr(self.cache[i],'curtailment',npzobj['curtailment'][i])
+        # for i in arange(len(self)):
+        #     setattr(self.cache[i],'balancing',npzobj['balancing'][i])
+        #     setattr(self.cache[i],'curtailment',npzobj['curtailment'][i])
 
         del npzobj.f
         npzobj.close()
@@ -422,8 +422,9 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
         print "Number of reduction quantile is %u, number of first guesses is %u!" % (len(reduction),len(guess))
         return
 
-    balmax=copper
-    balmin=notrans
+    balmin=copper
+    balmax=notrans
+    print 'balmin, balmax: ',balmin,balmax
 
     # check if there is a significant reduction possible at all
     if (2.*(balmax-balmin)/(balmax+balmin)<eps):
