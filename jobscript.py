@@ -32,6 +32,12 @@ def gamma_homogenous(linecap='copper',start=None,stop=None,alpha=None,gpercent=N
     elif (linecap == 'today'):
         h0 = None
         copper = 0
+    elif (linecap == '0.6_times_0.90Q'):
+        h0 = 0.6*get_quant(0.90)
+        copper = 0
+    elif (linecap == '0.8_times_0.90Q'):
+        h0 = 0.8*get_quant(0.90)
+        copper = 0
     else:
         print 'invalid linecap. abort'
         return
@@ -124,6 +130,12 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         copper = 0
     elif (linecap == 'today'):
         h0 = None
+        copper = 0
+    elif (linecap == '0.6_times_0.90Q'):
+        h0 = 0.6*get_quant(0.90)
+        copper = 0
+    elif (linecap == '0.8_times_0.90Q'):
+        h0 = 0.8*get_quant(0.90)
         copper = 0
     else:
         print 'invalid linecap. abort'
