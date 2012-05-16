@@ -169,7 +169,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_gamma_balred_quantiles',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None):
+def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_gamma_balred_quantiles',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None,alternative_copper_flows=False):
         
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
@@ -196,13 +196,16 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
         save_filename = []
         for i in range(len(red)):
             save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
+        if (alternative_copper_flows):
+            for i in range(len(red)):
+                save_filename[i] += '_alternative_copper'
         f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
         guess=guesses[year-1990,:]
         if (2014 <= year and year <= 2017): guess=[0.82,0.9]
         if (last_quant[0] !=0): guess=last_quant
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,alter_copper=alternative_copper_flows)
         quantiles.append(np.array(last_quant).copy())
         print quantiles
     qsave_file='logistic_gamma'
@@ -214,6 +217,65 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
     qsave_file += '_step_%u' % step
     np.save('./results/'+qsave_file,quantiles)
 
+
+def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
+        
+    red=[0.50,0.90]
+    #generate_basepath_gamma_alpha(step=step)
+    if start != None:
+        skip = start
+    else:
+        skip = 0
+    if stop != None:
+        skip_end = stop
+    else:
+        skip_end=60+1
+    years= arange(1990+skip,1990+skip_end,1)
+
+    quant_file = path + ('logistic_gamma_balred_quantiles_refined_step_%u.npy' % step)
+    quantiles = np.load(quant_file)
+    quant_end = quantiles[-1]
+    copper_file = ''
+    if (step == 2):
+        copper_file = 'results/copper_flows.npy'
+    else:
+        copper_file = 'results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+    Nlinks = 44
+    h_end = np.zeros((2*Nlinks,2))
+    for i in range(2):
+        h_end[:,i] = get_quant(quant_end[i],filename=copper_file)
+
+    for year in years:
+        for i in range(len(red)):
+            save_filename = 'logfit_gamma_year_%u_balred_%.2f_step_%u_capped_investment' % (year,red[i],step)
+            # if no unnecessary investment present: just link to old files
+            if (quantiles[year-1990,i] <= quant_end[i]):
+                link_flows=save_filename+'_flows.npy'
+                link_nodes=save_filename+'_nodes.npz'
+                target = 'logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)
+                if (step == 3):
+                    target += '_alternative_copper'
+                target_flows = target+'_flows.npy'
+                target_nodes = target+'_nodes.npz'
+                # print link_flows, target_flows
+                # print link_nodes, file_notrans
+                os.symlink(target_nodes,path+link_nodes)
+                os.symlink(target_flows,path+link_flows)
+                continue
+            # if overcapacities present: cap them and calculate with capped caps
+            else:
+                print "Now calculating for year = ",year,", reduction = ",red[i]
+                quantiles[year-1990,i]=quant_end[i]
+                N=Nodes()                
+                gammas=array(get_basepath_gamma(year,step=step))
+                alphas=array(get_basepath_alpha(year,step=step))
+                N.set_alphas(alphas)
+                N.set_gammas(gammas)
+                F = sdcpf(N,h0=h_end[:,i],copper=0)
+                N.save_nodes_small(save_filename+'_nodes')
+                np.save('./results/'+save_filename+'_flows',F)
+                del N
+                
 
 ######################################################
 ########### Process the results ######################
@@ -459,7 +521,11 @@ def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantil
             if (quantiles[i,j] == 0):
                 linecaps[i,j]=0
             else:
-                h=get_quant(quantiles[i,j])
+                if (step == 3):
+                    copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+                else:
+                    copper_flow_file='results/copper_flows.npy'
+                h=get_quant(quantiles[i,j],filename=copper_flow_file)
                 inv=0.
                 for l in range(len(h)):
                     inv += get_positive(h[l]-h0[l])
