@@ -593,9 +593,16 @@ def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step
 ########### Plot the results #########################
 ######################################################
 
+# some nice color palettes
+# cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] # Ocean Five (COLOURlovers) *
+# cl = ['#CB9FBE','#3D6BA5','#99CD26','#270323','#9A8224'] # my rainbow :-) (CL)
+# cl = ['#8378B0','#FFC352','#B94F11','#001119','#B49382'] # black & tan (CL)
+# cl = ['#1BA9D0','#8F5A42','#FFAD7A','#36291F','#E6304B'] # Click (CL) *
+# cl = ['#8F07BC','#4007BC','#F48709','#0C9D4C','#9D0C2B'] # lynnn (CL) *
+
 def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",picname='balancing_vs_homogenous_gamma.png'):
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
+    cl = ['#1BA9D0','#8F5A42','#FFAD7A','#36291F','#E6304B'] # Click (CL)
     pp = []
     i=0
     for cap in linecaps:
