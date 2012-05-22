@@ -248,7 +248,7 @@ def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
     for year in years:
         for i in range(len(red)):
             save_filename = 'logfit_gamma_year_%u_balred_%.2f_step_%u_capped_investment' % (year,red[i],step)
-            # if no unnecessary investment present: just link to old files
+            # if no overcapacities present: just link to old files
             if (quantiles[year-1990,i] <= quant_end[i]):
                 link_flows=save_filename+'_flows.npy'
                 link_nodes=save_filename+'_nodes.npz'
@@ -257,24 +257,21 @@ def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
                     target += '_alternative_copper'
                 target_flows = target+'_flows.npy'
                 target_nodes = target+'_nodes.npz'
-                # print link_flows, target_flows
-                # print link_nodes, file_notrans
                 os.symlink(target_nodes,path+link_nodes)
                 os.symlink(target_flows,path+link_flows)
                 continue
             # if overcapacities present: cap them and calculate with capped caps
-            else:
-                print "Now calculating for year = ",year,", reduction = ",red[i]
-                quantiles[year-1990,i]=quant_end[i]
-                N=Nodes()                
-                gammas=array(get_basepath_gamma(year,step=step))
-                alphas=array(get_basepath_alpha(year,step=step))
-                N.set_alphas(alphas)
-                N.set_gammas(gammas)
-                F = sdcpf(N,h0=h_end[:,i],copper=0)
-                N.save_nodes_small(save_filename+'_nodes')
-                np.save('./results/'+save_filename+'_flows',F)
-                del N
+            print "Now calculating for year = ",year,", reduction = ",red[i]
+            quantiles[year-1990,i]=quant_end[i]
+            N=Nodes()                
+            gammas=array(get_basepath_gamma(year,step=step))
+            alphas=array(get_basepath_alpha(year,step=step))
+            N.set_alphas(alphas)
+            N.set_gammas(gammas)
+            F = sdcpf(N,h0=h_end[:,i],copper=0)
+            N.save_nodes_small(save_filename+'_nodes')
+            np.save('./results/'+save_filename+'_flows',F)
+            del N
                 
 
 ######################################################

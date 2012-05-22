@@ -291,13 +291,14 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     km = np.matrix(km.todense())
     if (h0 != None):
         H=h0
-    h_neg=-H[1:88:2]
-    h_pos=H[0:88:2]
+    h_neg=np.array(-H[1:88:2],dtype='d')
+    h_pos=np.array(H[0:88:2],dtype='d')
     flw=np.zeros(Nlinks)
-    k=array([float(i) for i in kv])
-    K=k.ctypes.data_as(ct.c_void_p)
-    H_neg=h_neg.ctypes.data_as(ct.c_void_p)
-    H_pos=h_pos.ctypes.data_as(ct.c_void_p)
+
+    k=np.array([float(i) for i in kv],dtype='d')
+    K=k.ctypes.data_as(ct.POINTER(ct.c_double))
+    H_neg=h_neg.ctypes.data_as(ct.POINTER(ct.c_double))
+    H_pos=h_pos.ctypes.data_as(ct.POINTER(ct.c_double))
     Flw=flw.ctypes.data_as(ct.POINTER(ct.c_double)) # for return by ref
 
     delta=np.zeros(Nnodes)
@@ -311,7 +312,8 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
             for i in N:
                 delta[i.id]=i.mismatch[t]
             deltas[:,t]=delta
-            Delta=delta.ctypes.data_as(ct.c_void_p)
+            delt=np.array(delta,dtype='d')
+            Delta=delt.ctypes.data_as(ct.POINTER(ct.c_double))
             MinBal=firststep.balmin(Delta,K,H_neg,H_pos)
             # print "MinBal is ", MinBal
             minbal=ct.c_double(MinBal+eps)
@@ -332,7 +334,8 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
             for i in N:
                 delta[i.id]=i.mismatch[t]
             deltas[:,t]=delta
-            Delta=delta.ctypes.data_as(ct.c_void_p)
+            delt=np.array(delta,dtype='d')
+            Delta=delt.ctypes.data_as(ct.POINTER(ct.c_double))
             MinBal=ufirststep.ubalmin(Delta,K)
             # print "MinBal is ", MinBal
             minbal=ct.c_double(MinBal+eps)
