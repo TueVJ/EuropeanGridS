@@ -86,8 +86,8 @@ def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogen
 
     gvals= arange(skip,skip_end,1)
     quantiles=[]
-    guessfile += '.npy'
-    guesses = np.load(path+guessfile)
+    # guessfile += '.npy'
+    # guesses = np.load(path+guessfile)
     cfile = copper_file + '.npy'
     balmins=np.load(path+cfile)[:,1]
     #print balmins
@@ -103,9 +103,10 @@ def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogen
             save_filename.append(('homogenous_gamma_%.2f_balred_%.2f' % (gamma,red[i])))
         balmax=balmaxes[gval]
         balmin=balmins[gval]
-        guess=guesses[gval,:]        
+        guess=[0.0,0.0]
         f_notrans='homogenous_gamma_%.2f_linecap_0.40Q_nodes.npz' % gamma
-        if (gval == 26): guess=[0.82,0.9]
+        if (gval == 26): guess=[0.75,0.86]
+        if (start == 50): guess=[0.8075,0.9075]
         if (last_quant[0] !=0.): guess=last_quant
         last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gamma,alpha=0.7,save_filename=save_filename)
         quantiles.append(np.array(last_quant).copy())
@@ -203,7 +204,7 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
         guess=guesses[year-1990,:]
-        if (2014 <= year and year <= 2017): guess=[0.82,0.9]
+        if (2014 <= year and year <= 2017): guess=[0.80,0.88]
         if (last_quant[0] !=0): guess=last_quant
         last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,alter_copper=alternative_copper_flows)
         quantiles.append(np.array(last_quant).copy())
@@ -418,15 +419,24 @@ def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quan
     del N
     linecaps=np.zeros((2,100+1))
     for i in range(2):
-        for j in range(100+1):
+         for j in range(100+1):
             if (quantiles[i,j] == 0):
-                h=h0
+                linecaps[i,j]=0
             else:
                 h=get_quant(quantiles[i,j])
-            inv=0.
-            for l in range(len(h)):
-                inv += h[l]
-            linecaps[i,j]=inv
+                inv=0.
+                for l in range(len(h)):
+                    inv += get_positive(h[l]-h0[l])
+                linecaps[i,j]=inv
+       # for j in range(100+1):
+       #      if (quantiles[i,j] == 0):
+       #          h=h0
+       #      else:
+       #          h=get_quant(quantiles[i,j])
+       #      inv=0.
+       #      for l in range(len(h)):
+       #          inv += h[l]
+       #      linecaps[i,j]=inv
     return linecaps
 
 
@@ -541,22 +551,34 @@ def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantil
     for i in range(2):
         for j in range(60+1):
             if (quantiles[i,j] == 0):
-                h=h0
+                linecaps[i,j]=0
             else:
                 if (step == 3):
                     copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
                 else:
                     copper_flow_file='results/copper_flows.npy'
                 h=get_quant(quantiles[i,j],filename=copper_flow_file)
-            inv=0.
-            for l in range(len(h)):
-                inv += h[l]
-            linecaps[i,j]=inv
+                inv=0.
+                for l in range(len(h)):
+                    inv += get_positive(h[l]-h0[l])
+                linecaps[i,j]=inv
+            # if (quantiles[i,j] == 0):
+            #     h=h0
+            # else:
+            #     if (step == 3):
+            #         copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+            #     else:
+            #         copper_flow_file='results/copper_flows.npy'
+            #     h=get_quant(quantiles[i,j],filename=copper_flow_file)
+            # inv=0.
+            # for l in range(len(h)):
+            #     inv += h[l]
+            # linecaps[i,j]=inv
     return linecaps
 
 
 def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step=2,linecap='copper'):
-    outfile='mismatch_and_curtailment_linecap_%s_step_%u_%s.npy' % (linecap,step,ISO)
+    outfile='export_and_curtailment_linecap_%s_step_%u_%s.npy' % (linecap,step,ISO)
     if os.path.exists(path+outfile):
         data=np.load(path+outfile)
         years=data[:,0]
@@ -571,7 +593,10 @@ def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step
         fname='logfit_gamma_year_%u' % year
         if (linecap.find('balred') >= 0): fname += '_'+linecap
         else: fname += '_linecap_'+linecap
-        fname += '_step_%u_nodes.npz' % step
+        fname += '_step_%u_nodes' % step
+        if ((step == 3) and (linecap.find('balred') >= 0)):
+            fname += '_alternative_copper'
+        fname += '.npz'
         N=Nodes(load_filename=fname)
         nhours=N[0].nhours
         curt=np.zeros(nhours)
@@ -703,7 +728,7 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
     leg=legend(pp,pp_label,loc='upper left')
     axis(xmin=0,xmax=1,ymin=0,ymax=10.)
     xlabel('gamma')
-    ylabel(r'total line capacities/$10^5\,$MW')
+    ylabel(r'total new line capacities/$10^5\,$MW')
 
     fig.suptitle(title_,fontsize=14,y=0.96)
     ltext  = leg.get_texts();
@@ -921,7 +946,7 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=10.)
     xlabel('year')
-    ylabel(r'necessary total line capacities/$10^5\,$MW')
+    ylabel(r'necessary total new line capacities/$10^5\,$MW')
 
     title_ = ''
     if capped_inv: title_ = 'Capped transmission investment'
