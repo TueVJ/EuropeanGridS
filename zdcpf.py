@@ -291,18 +291,14 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     km = np.matrix(km.todense())
     if (h0 != None):
         H=h0
-    h_neg=-H[1:88:2]
-    h_pos=H[0:88:2]
-    #print 'h_pos: ',shape(h_neg),h_neg
-    if (copper == 1):
-        h_neg=-1.e6*np.ones(Nlinks)
-        h_pos=1.e6*np.ones(Nlinks)
-    #print 'h_pos: ',shape(h_neg),h_neg
+    h_neg=np.array(-H[1:88:2],dtype='d')
+    h_pos=np.array(H[0:88:2],dtype='d')
     flw=np.zeros(Nlinks)
-    k=array([float(i) for i in kv])
-    K=k.ctypes.data_as(ct.c_void_p)
-    H_neg=h_neg.ctypes.data_as(ct.c_void_p)
-    H_pos=h_pos.ctypes.data_as(ct.c_void_p)
+
+    k=np.array([float(i) for i in kv],dtype='d')
+    K=k.ctypes.data_as(ct.POINTER(ct.c_double))
+    H_neg=h_neg.ctypes.data_as(ct.POINTER(ct.c_double))
+    H_pos=h_pos.ctypes.data_as(ct.POINTER(ct.c_double))
     Flw=flw.ctypes.data_as(ct.POINTER(ct.c_double)) # for return by ref
 
     delta=np.zeros(Nnodes)
@@ -316,7 +312,8 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
             for i in N:
                 delta[i.id]=i.mismatch[t]
             deltas[:,t]=delta
-            Delta=delta.ctypes.data_as(ct.c_void_p)
+            delt=np.array(delta,dtype='d')
+            Delta=delt.ctypes.data_as(ct.POINTER(ct.c_double))
             MinBal=firststep.balmin(Delta,K,H_neg,H_pos)
             # print "MinBal is ", MinBal
             minbal=ct.c_double(MinBal+eps)
@@ -337,7 +334,8 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
             for i in N:
                 delta[i.id]=i.mismatch[t]
             deltas[:,t]=delta
-            Delta=delta.ctypes.data_as(ct.c_void_p)
+            delt=np.array(delta,dtype='d')
+            Delta=delt.ctypes.data_as(ct.POINTER(ct.c_double))
             MinBal=ufirststep.ubalmin(Delta,K)
             # print "MinBal is ", MinBal
             minbal=ct.c_double(MinBal+eps)
@@ -371,7 +369,11 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     return F
 
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):
-    outfile = 'results/linecap_quant_%.4f.npy' % quant
+    outfile = 'results/linecap_quant_%.4f' % quant
+    if (filename != 'results/copper_flows.npy'):
+        outfile += '_'+filename[8:-10]
+    outfile += '.npy'
+    #print outfile
     if os.path.exists(outfile):
         hs = np.load(outfile)
         return hs
@@ -405,7 +407,7 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
     show()
 
 
-def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None):
+def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None,alter_copper=False):
 
     '''Loop over different quantile line capacities until the quantile
     is found that leads to a reduction of balancing by <reduction>
@@ -451,7 +453,11 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
         olddist=0.
         balreal=0.
         while True:
-            h=get_quant(quant[i])
+            if (alter_copper):
+                copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+            else:
+                copper_flow_file='results/copper_flows.npy'
+            h=get_quant(quant[i],filename=copper_flow_file)
             # memory leak when the same N is used over and
             # over again (why?) -> del and new all the time
             N=Nodes()
@@ -468,7 +474,7 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
             balreal=a/b
             reldist=abs(1.-balreal/baltarget)
             dist=baltarget-balreal
-            if (reldist < eps or step<0.0002):
+            if (reldist < eps or step<0.0001):
                 print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
                 print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
                 # if a filename is provided, save minimal nodes and flows

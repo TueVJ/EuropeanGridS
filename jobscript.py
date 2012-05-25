@@ -86,8 +86,8 @@ def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogen
 
     gvals= arange(skip,skip_end,1)
     quantiles=[]
-    guessfile += '.npy'
-    guesses = np.load(path+guessfile)
+    # guessfile += '.npy'
+    # guesses = np.load(path+guessfile)
     cfile = copper_file + '.npy'
     balmins=np.load(path+cfile)[:,1]
     #print balmins
@@ -103,9 +103,10 @@ def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogen
             save_filename.append(('homogenous_gamma_%.2f_balred_%.2f' % (gamma,red[i])))
         balmax=balmaxes[gval]
         balmin=balmins[gval]
-        guess=guesses[gval,:]        
+        guess=[0.0,0.0]
         f_notrans='homogenous_gamma_%.2f_linecap_0.40Q_nodes.npz' % gamma
-        if (gval == 26): guess=[0.82,0.9]
+        if (gval == 26): guess=[0.75,0.86]
+        if (start == 50): guess=[0.8075,0.9075]
         if (last_quant[0] !=0.): guess=last_quant
         last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gamma,alpha=0.7,save_filename=save_filename)
         quantiles.append(np.array(last_quant).copy())
@@ -169,7 +170,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_gamma_balred_quantiles',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None):
+def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_gamma_balred_quantiles',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None,alternative_copper_flows=False):
         
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
@@ -196,13 +197,16 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
         save_filename = []
         for i in range(len(red)):
             save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
+        if (alternative_copper_flows):
+            for i in range(len(red)):
+                save_filename[i] += '_alternative_copper'
         f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
         guess=guesses[year-1990,:]
-        if (2014 <= year and year <= 2017): guess=[0.82,0.9]
+        if (2014 <= year and year <= 2017): guess=[0.80,0.88]
         if (last_quant[0] !=0): guess=last_quant
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename)
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,alter_copper=alternative_copper_flows)
         quantiles.append(np.array(last_quant).copy())
         print quantiles
     qsave_file='logistic_gamma'
@@ -214,6 +218,62 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
     qsave_file += '_step_%u' % step
     np.save('./results/'+qsave_file,quantiles)
 
+
+def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
+        
+    red=[0.50,0.90]
+    #generate_basepath_gamma_alpha(step=step)
+    if start != None:
+        skip = start
+    else:
+        skip = 0
+    if stop != None:
+        skip_end = stop
+    else:
+        skip_end=60+1
+    years= arange(1990+skip,1990+skip_end,1)
+
+    quant_file = path + ('logistic_gamma_balred_quantiles_refined_step_%u.npy' % step)
+    quantiles = np.load(quant_file)
+    quant_end = quantiles[-1]
+    copper_file = ''
+    if (step == 2):
+        copper_file = 'results/copper_flows.npy'
+    else:
+        copper_file = 'results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+    Nlinks = 44
+    h_end = np.zeros((2*Nlinks,2))
+    for i in range(2):
+        h_end[:,i] = get_quant(quant_end[i],filename=copper_file)
+
+    for year in years:
+        for i in range(len(red)):
+            save_filename = 'logfit_gamma_year_%u_balred_%.2f_step_%u_capped_investment' % (year,red[i],step)
+            # if no overcapacities present: just link to old files
+            if (quantiles[year-1990,i] <= quant_end[i]):
+                link_flows=save_filename+'_flows.npy'
+                link_nodes=save_filename+'_nodes.npz'
+                target = 'logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)
+                if (step == 3):
+                    target += '_alternative_copper'
+                target_flows = target+'_flows.npy'
+                target_nodes = target+'_nodes.npz'
+                os.symlink(target_nodes,path+link_nodes)
+                os.symlink(target_flows,path+link_flows)
+                continue
+            # if overcapacities present: cap them and calculate with capped caps
+            print "Now calculating for year = ",year,", reduction = ",red[i]
+            quantiles[year-1990,i]=quant_end[i]
+            N=Nodes()                
+            gammas=array(get_basepath_gamma(year,step=step))
+            alphas=array(get_basepath_alpha(year,step=step))
+            N.set_alphas(alphas)
+            N.set_gammas(gammas)
+            F = sdcpf(N,h0=h_end[:,i],copper=0)
+            N.save_nodes_small(save_filename+'_nodes')
+            np.save('./results/'+save_filename+'_flows',F)
+            del N
+                
 
 ######################################################
 ########### Process the results ######################
@@ -280,13 +340,17 @@ def get_flows_vs_gamma(prefix='homogenous_gamma',path='./results/',linecap='copp
     return Fvsg
 
 
-def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
+def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_inv=False):
     filename = prefix
     if (linecap.find('balred')>=0):
         filename += '_'+linecap
     else:
         filename += '_linecap_'+linecap
     filename +=('_step_%u' % step)
+    if (linecap.find('balred')>=0):
+        if (capped_inv): filename += '_capped_investment'
+        else:
+            if (step == 3): filename += '_alternative_copper'
     print filename
     if os.path.exists('./results/Bvsg_'+filename+'.npy'):
         Bvsg=np.load('./results/Bvsg_'+filename+'.npy')
@@ -301,7 +365,12 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
             load_filename += '_'+linecap
         else:
             load_filename += '_linecap_'+linecap
-        load_filename += ('_step_%u' % step)+'_nodes.npz'
+        load_filename += ('_step_%u' % step)
+        if (linecap.find('balred')>=0):
+            if (capped_inv): load_filename += '_capped_investment'
+            else:
+                if (step == 3): load_filename += '_alternative_copper'
+        load_filename += '_nodes.npz'
         print load_filename
         N=Nodes(load_filename=load_filename)
         a=0
@@ -309,6 +378,7 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2):
         for i in N:
             a+=sum(i.balancing)
             d+=i.mean*i.nhours
+        del N
         c=a/d
         Bvsg[j,1]=c
         j+=1
@@ -349,7 +419,7 @@ def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quan
     del N
     linecaps=np.zeros((2,100+1))
     for i in range(2):
-        for j in range(100+1):
+         for j in range(100+1):
             if (quantiles[i,j] == 0):
                 linecaps[i,j]=0
             else:
@@ -358,6 +428,15 @@ def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quan
                 for l in range(len(h)):
                     inv += get_positive(h[l]-h0[l])
                 linecaps[i,j]=inv
+       # for j in range(100+1):
+       #      if (quantiles[i,j] == 0):
+       #          h=h0
+       #      else:
+       #          h=get_quant(quantiles[i,j])
+       #      inv=0.
+       #      for l in range(len(h)):
+       #          inv += h[l]
+       #      linecaps[i,j]=inv
     return linecaps
 
 
@@ -385,15 +464,19 @@ def get_alpha_vs_year(path='./results/',prefix='logfit_gamma',step=2):
     return alpha_vs_year
 
 
-def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',step=2):
+def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',step=2,capped_inv=False):
     filename=path+'Fvsg_'+prefix
     if (linecap.find('balred')>=0):
         filename += '_'+linecap
     else:
         filename += '_linecap_'+linecap
     filename += '_step_%u' % step
+    if (linecap.find('balred')>=0):
+        if (capped_inv): filename += '_capped_investment'
+        else:
+            if (step == 3): filename += '_alternative_copper'
     if os.path.exists(filename+'.npy'):
-        Fvsg=np.load(filename)
+        Fvsg=np.load(filename+'.npy')
         return Fvsg
     years=arange(1990,2050+1,1)
     Fvsg=np.zeros((len(years),3))
@@ -405,7 +488,12 @@ def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',s
             load_filename += '_'+linecap
         else:
             load_filename += '_linecap_'+linecap
-        load_filename += ('_step_%u' % step)+'_flows.npy'
+        load_filename += ('_step_%u' % step)
+        if (linecap.find('balred')>=0):
+            if (capped_inv): load_filename += '_capped_investment'
+            else:
+                if (step == 3): load_filename += '_alternative_copper'
+        load_filename += '_flows.npy'
         print load_filename
         flows=np.load(path+load_filename)
         a=0.
@@ -446,9 +534,15 @@ def get_optimal_alphas(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',step=
     return alpha
 
 
-def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles',step=2):
+def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles',step=2,capped_inv=False):
     name = prefix + ('_step_%u' % step) + '.npy'
     quantiles=transpose(np.load(path+name))
+    if (capped_inv):
+        quant_end = quantiles[:,-1]
+        for i in range(2):
+            for j in range(60+1):
+                if quantiles[i,j] >= quant_end[i]:
+                    quantiles[i,j] = quant_end[i]
     #print shape(quantiles)
     N=Nodes()
     km,kv,h0,lf=AtoKh(N) # h0: linecap today
@@ -459,16 +553,32 @@ def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantil
             if (quantiles[i,j] == 0):
                 linecaps[i,j]=0
             else:
-                h=get_quant(quantiles[i,j])
+                if (step == 3):
+                    copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+                else:
+                    copper_flow_file='results/copper_flows.npy'
+                h=get_quant(quantiles[i,j],filename=copper_flow_file)
                 inv=0.
                 for l in range(len(h)):
                     inv += get_positive(h[l]-h0[l])
                 linecaps[i,j]=inv
+            # if (quantiles[i,j] == 0):
+            #     h=h0
+            # else:
+            #     if (step == 3):
+            #         copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+            #     else:
+            #         copper_flow_file='results/copper_flows.npy'
+            #     h=get_quant(quantiles[i,j],filename=copper_flow_file)
+            # inv=0.
+            # for l in range(len(h)):
+            #     inv += h[l]
+            # linecaps[i,j]=inv
     return linecaps
 
 
 def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step=2,linecap='copper'):
-    outfile='mismatch_and_curtailment_linecap_%s_step_%u_%s.npy' % (linecap,step,ISO)
+    outfile='export_and_curtailment_linecap_%s_step_%u_%s.npy' % (linecap,step,ISO)
     if os.path.exists(path+outfile):
         data=np.load(path+outfile)
         years=data[:,0]
@@ -483,7 +593,10 @@ def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step
         fname='logfit_gamma_year_%u' % year
         if (linecap.find('balred') >= 0): fname += '_'+linecap
         else: fname += '_linecap_'+linecap
-        fname += '_step_%u_nodes.npz' % step
+        fname += '_step_%u_nodes' % step
+        if ((step == 3) and (linecap.find('balred') >= 0)):
+            fname += '_alternative_copper'
+        fname += '.npz'
         N=Nodes(load_filename=fname)
         nhours=N[0].nhours
         curt=np.zeros(nhours)
@@ -527,9 +640,17 @@ def get_export_and_curtailment(path='./results/',datpath='./data/',ISO='DK',step
 ########### Plot the results #########################
 ######################################################
 
+# some nice color palettes
+# cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] # Ocean Five (COLOURlovers) *
+# cl = ['#CB9FBE','#3D6BA5','#99CD26','#270323','#9A8224'] # my rainbow :-) (CL)
+# cl = ['#8378B0','#FFC352','#B94F11','#001119','#B49382'] # black & tan (CL)
+# cl = ['#1BA9D0','#8F5A42','#FFAD7A','#36291F','#E6304B'] # Click (CL) *
+# cl = ['#8F07BC','#4007BC','#F48709','#0C9D4C','#9D0C2B'] # lynnn (CL) *
+# cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL) *
+
 def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",picname='balancing_vs_homogenous_gamma.png'):
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     i=0
     for cap in linecaps:
@@ -558,7 +679,7 @@ def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps
 
 def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_homogenous_gamma.png'):
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     i=0
     for cap in linecaps:
@@ -595,19 +716,19 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
 def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction']):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     pp_x=arange(0.,1.01,0.01)
     for i in range(2):
         pp_y=linecaps[i,:]*1e-5
         print shape(pp_y)
-        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i+2])
         pp.extend(pp_)
     pp_label=label
     leg=legend(pp,pp_label,loc='upper left')
     axis(xmin=0,xmax=1,ymin=0,ymax=10.)
     xlabel('gamma')
-    ylabel(r'necessary total new line capacities/$10^5\,$MW')
+    ylabel(r'total new line capacities/$10^5\,$MW')
 
     fig.suptitle(title_,fontsize=14,y=0.96)
     ltext  = leg.get_texts();
@@ -621,7 +742,7 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
 def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     pp_x=arange(0.,1.01,0.01)
     for i in range(2):
@@ -631,7 +752,7 @@ def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_q
         for j in range(len(pp_y)):
             if j==0: continue
             pp_y[j] = get_positive(caps[j]-max(caps[:j]))
-        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i+2])
         pp.extend(pp_)
     pp_label=label
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
@@ -649,7 +770,7 @@ def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_q
     save_figure(picname)
 
 
-def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"Logistic growth of wind and solar generation",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='balancing_vs_year',step=2):
+def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='balancing_vs_year',step=2,capped_inv=False):
 
     fig=figure(1); clf()
     #calculate average gamma as weighted mean of all countries for all years
@@ -671,7 +792,7 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     par.set_xticks(gamma_ticks)
     par.set_xticklabels(gamma_labels,rotation=30)#,shift=3)
 
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     i=0
     for linecap in linecaps:
@@ -680,10 +801,16 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
         else:
             name = prefix+'_linecap_'+linecap
         name += ('_step_%u' % step)
+        if (linecap.find('balred')>=0):
+            if (capped_inv):
+                name += '_capped_investment'
+            else:
+                if step==3:
+                    name += '_alternative_copper'
         fname = 'Bvsg_'+name+'.npy'
         print 'Processing '+fname
         if not os.path.exists(path+fname):
-            data = get_balancing_vs_year(prefix=prefix,step=step,linecap=linecap)
+            data = get_balancing_vs_year(prefix=prefix,step=step,linecap=linecap,capped_inv=capped_inv)
         else:
             data = np.load(path+fname)
         pp_x = array(data[:,0])
@@ -700,6 +827,9 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
         pp_ = host.plot(pp_x,pp_y,lw=1.5,color=cl[i],ls='--')
         i += 1
 
+    title_ = ''
+    if capped_inv: title_ = 'Capped transmission investment'
+    else: title_ = 'Full transmission investment'
     fig.suptitle(title_,fontsize=14,y=0.96)
 
     title_leg=''
@@ -713,11 +843,14 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     text(1991,0.03,'dashed lines indicate corresponding homogenous',fontsize='small',fontstyle='italic')
     text(1991,0.015,'gamma-growth balancing',fontsize='small',fontstyle='italic')
 
-    picname = picname +'_'+ prefix + ('_step_%u' %step) + '.png'
+    picname = picname +'_'+ prefix + ('_step_%u' %step)
+    if capped_inv:
+        picname += '_capped_investment'
+    picname += '.png'
     save_figure(picname)
 
 
-def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"Logistic growth of wind and solar generation",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_year',step=2):
+def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_year',step=2,capped_inv=False):
     fig=figure(1); clf()
     #calculate average gamma as weighted mean of all countries for all years
     gamma_vs_year= array(get_gamma_vs_year(step=step))
@@ -737,7 +870,7 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     #     print gamma_ticks[i], gamma_labels[i]
     par.set_xticks(gamma_ticks)
     par.set_xticklabels(gamma_labels,rotation=30)#,shift=3)
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     i=0
     #calculate average gamma as weighted mean of all countries for all years
@@ -747,6 +880,12 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
         else:
             name = prefix+'_linecap_'+linecap
         name += ('_step_%u' % step)
+        if (linecap.find('balred')>=0):
+            if (capped_inv):
+                name += '_capped_investment'
+            else:
+                if step==3:
+                    name += '_alternative_copper'
         fname = 'Fvsg_'+name+'.npy'
         print 'Processing '+fname
         if not os.path.exists(path+fname):
@@ -764,6 +903,9 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
         pp_ = host.plot(pp_x,pp_y,lw=1.5,color=cl[i],ls='--')
         i += 1
 
+    title_ = ''
+    if capped_inv: title_ = 'Capped transmission investment'
+    else: title_ = 'Full transmission investment'
     fig.suptitle(title_,fontsize=14,y=0.96)
 
     title_leg=''
@@ -781,19 +923,21 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     text(1991,0.4,'dashed lines indicate corresponding homogenous',fontsize='small',fontstyle='italic')
     text(1991,0.15,'gamma-growth flows',fontsize='small',fontstyle='italic')
 
-    picname = picname +'_'+ prefix + ('_step_%u' %step) + '.png'
+    picname = picname +'_'+ prefix + ('_step_%u' %step)
+    if capped_inv: picname += '_capped_investment'
+    picname += '.png'
     save_figure(picname)
 
 
-def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation"):
-    linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
+def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],capped_inv=False):
+    linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step,capped_inv=capped_inv)
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     pp_x=arange(1990,2050+1,1)
     for i in range(2):
         pp_y=linecaps[i,:]*1e-5
-        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i+2])
         pp.extend(pp_)
     pp_label=label
     title_leg=''
@@ -804,19 +948,24 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     xlabel('year')
     ylabel(r'necessary total new line capacities/$10^5\,$MW')
 
-    fig.suptitle(title_,fontsize=14,y=0.96)
+    title_ = ''
+    if capped_inv: title_ = 'Capped transmission investment'
+    else: title_ = 'Full transmission investment'
+    fig.suptitle(title_,fontsize=14,y=0.92)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    picname = 'linecaps_vs_year' + ('_step_%u' %step) + '.png'
+    picname = 'linecaps_vs_year' + ('_step_%u' %step)
+    if capped_inv: picname += '_capped_investment'
+    picname += '.png'
     save_figure(picname)
 
 
-def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_=r"Logistic growth of wind and solar generation"):
-    linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step)
+def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],capped_inv=False):
+    linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step,capped_inv=capped_inv)
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
     pp_x=arange(1990,2050+1,1)
     for i in range(2):
@@ -826,7 +975,7 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
         for j in range(len(pp_y)):
             if j==0: continue
             pp_y[j] = get_positive(caps[j]-max(caps[:j]))
-        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i])
+        pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i+2])
         pp.extend(pp_)
     pp_label=label
     title_leg=''
@@ -837,19 +986,24 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
     xlabel('year')
     ylabel(r'necessary total new line capacities/$10^5\,$MW per year')
 
-    fig.suptitle(title_,fontsize=14,y=0.96)
+    title_ = ''
+    if capped_inv: title_ = 'Capped transmission investment'
+    else: title_ = 'Full transmission investment'
+    fig.suptitle(title_,fontsize=14,y=0.92)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    picname = 'investment_vs_year' + ('_step_%u' %step) + '.png'
+    picname = 'investment_vs_year' + ('_step_%u' %step)
+    if capped_inv: picname += '_capped_investment'
+    picname += '.png'
     save_figure(picname)
 
 
 def plot_export_and_curtailment(ISO='DK',linecap='copper',step=2,label=['overproduction','realizable export'],title_='Export opportunities for '):
     years,curtailment,pos_mismatch=get_export_and_curtailment(ISO=ISO,linecap=linecap, step=step)
     fig=figure(1); clf()
-    cl = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from CO
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp_x=years
     pp_y=pos_mismatch
     #pp_=plot(pp_x,pp_y,lw=1.5,color=cl[0])
