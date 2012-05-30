@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import gc
 from pylab import *
 from scipy import *
 from scipy.sparse import coo_matrix # analog of prev. used cvxopt.spmatrix
@@ -30,6 +31,7 @@ class node:
         self.label = data['datalabel']
         self.mismatch = None
         self.colored_import = None #Set using self.set_colored_i_import()
+        del data.f
         data.close()
         self._update_()
         self.gen=np.zeros(self.nhours)        
@@ -163,15 +165,16 @@ class Nodes:
 
         npzobj = load(path+load_filename)
         
-        # for attribute in npzobj.files:
-        #    for i in arange(len(self)):
-        #        print self.cache[i],attribute,npzobj[attribute][i]
-        #        setattr(self.cache[i],attribute,npzobj[attribute][i])
+        for attribute in npzobj.files:
+           for i in arange(len(self)):
+               # print self.cache[i],attribute,npzobj[attribute][i]
+               setattr(self.cache[i],attribute,npzobj[attribute][i])
 
-        for i in arange(len(self)):
-            setattr(self.cache[i],'balancing',npzobj['balancing'][i])
-            setattr(self.cache[i],'curtailment',npzobj['curtailment'][i])
+        # for i in arange(len(self)):
+        #     setattr(self.cache[i],'balancing',npzobj['balancing'][i])
+        #     setattr(self.cache[i],'curtailment',npzobj['curtailment'][i])
 
+        del npzobj.f
         npzobj.close()
 
         for n in self.cache:
@@ -260,7 +263,7 @@ def AtoKh(N,pathadmat='./settings/admat.txt'):
                     K_row_indices.extend([j,i])
                     h[2*L]=Ad[i,j]
                     h[2*L+1]=Ad[j,i]
-                    if L>0: listFlows.append([str(N[j-1].label)+" to " +str(N[i-1].label), L-1])
+                    listFlows.append([str(N[j].label)+" to " +str(N[i].label), L])
                     L+=1
     K=coo_matrix((K_values,(K_row_indices,K_column_indices)))
     # rowstring='{'
@@ -365,10 +368,10 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     end=time()
     print "Assigning balancing and curtailment took %3.1f seconds." % (end-start2)
     print "Complete calculation took %3.1f seconds." % (end-start)
-    return N,F
+    return F
 
 def get_quant(quant=0.99,filename='results/copper_flows.npy'):
-    outfile = 'results/linecap_quant_%.2f.npy' % quant
+    outfile = 'results/linecap_quant_%.4f.npy' % quant
     if os.path.exists(outfile):
         hs = np.load(outfile)
         return hs
@@ -378,14 +381,14 @@ def get_quant(quant=0.99,filename='results/copper_flows.npy'):
         flows.append(i*(i>0.))
         flows.append(-i*(i<0.))
     a=np.zeros(len(flows))
-    b=np.zeros(len(flows))
     hs=np.zeros(len(flows))
     for i in range(len(flows)):
-        a=hist(flows[i],cumulative=True,bins=100,normed=True)
+        a=hist(flows[i],cumulative=True,bins=500,normed=True)
         for j in range(len(a[0])):
             if (a[0][j]>=quant):
                 hs[i]=a[1][j]
                 break
+        clf()
     np.save(outfile,hs)
     return hs
 
@@ -400,3 +403,97 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
 #    b=hist(flows[link+1],bins=b,range=[flows[link+1].min(),-0.1],normed=1,histtype='stepfilled')
     a=hist(flows[link],bins=b,normed=1,histtype='stepfilled')
     show()
+
+
+def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None):
+
+    '''Loop over different quantile line capacities until the quantile
+    is found that leads to a reduction of balancing by <reduction>
+    times what is possible, with a relative uncertainty of
+    <eps>. <guess> specifies your first guess for the quantile.'''
+
+    try:
+        dmy=len(reduction)
+        dmy=len(guess)
+    except TypeError:
+        print "reduction and guess must be (possibly one-element) lists!"
+        return
+    if (len(reduction) != len(guess)):
+        print "Number of reduction quantile is %u, number of first guesses is %u!" % (len(reduction),len(guess))
+        return
+
+    balmin=copper
+    balmax=notrans
+    print 'balmin, balmax: ',balmin,balmax
+
+    # check if there is a significant reduction possible at all
+    if (2.*(balmax-balmin)/(balmax+balmin)<eps):
+        if (save_filename != None):
+            for i in range(len(reduction)):
+                # print save_filename[i]
+                # sys.stdout.flush()
+                link_flows=save_filename[i]+'_flows.npy'
+                link_nodes=save_filename[i]+'_nodes.npz'
+                target_flows=file_notrans[:-10]+'_flows.npy'
+                # print link_flows, target_flows
+                # print link_nodes, file_notrans
+                os.symlink(file_notrans,'./results/'+link_nodes)
+                os.symlink(target_flows,'./results/'+link_flows)
+        quant=np.zeros(len(reduction))
+        return quant
+
+    quant=guess # initial guess
+    for i in range(len(reduction)):
+        baltarget=balmin+(1.-reduction[i])*(balmax-balmin)
+        print '%9s %10s %10s %10s' % ('reduction','balmin','balmax','baltarget')
+        print '%9.4f %10.7f %10.7f %10.7f' % (reduction[i],balmin,balmax,baltarget)
+        step=stepsize
+        olddist=0.
+        balreal=0.
+        while True:
+            h=get_quant(quant[i])
+            # memory leak when the same N is used over and
+            # over again (why?) -> del and new all the time
+            N=Nodes()
+            if (alpha == None):
+                N.set_alphas(0.7)
+            else:
+                N.set_alphas(alpha)
+            N.set_gammas(gamma)
+            F=sdcpf(N,h0=h)
+            a=0.; b=0.
+            for j in N:
+                a+=sum(j.balancing)
+                b+=j.mean*j.nhours
+            balreal=a/b
+            reldist=abs(1.-balreal/baltarget)
+            dist=baltarget-balreal
+            if (reldist < eps or step<0.0002):
+                print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
+                print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
+                # if a filename is provided, save minimal nodes and flows
+                if (save_filename != None): 
+                    N.save_nodes_small(save_filename[i]+'_nodes')
+                    np.save('./results/'+save_filename[i]+'_flows',F)
+                print 'gc.get_count before collection ',gc.get_count()
+                gc.collect()
+                print 'gc.get_count after collection ',gc.get_count()
+                del N #not here, but in same scope where it was constructed!
+                break
+            if (dist*olddist<0.): # sign change = we passed the perfect point! now reduce step size
+                step=step/2.
+            if dist<0:
+                quant[i] +=step
+            if dist>0:
+                quant[i] -=step
+            if (quant[i]>=1.): # we are clearly overshooting -> go back
+                step=step/2.
+                quant[i]=0.9999
+            print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
+            print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
+            olddist=dist
+            print 'gc.get_count before collection ',gc.get_count()
+            gc.collect()
+            print 'gc.get_count after collection ',gc.get_count()
+            del N
+    return quant #, 1.-(balreal-balmin)/(balmax-balmin)
