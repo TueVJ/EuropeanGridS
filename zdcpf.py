@@ -13,7 +13,13 @@ import ctypes as ct
 colors_countries = ['#00A0B0','#6A4A3C','#CC333F','#EB6841','#EDC951'] #Ocean Five from COLOURlovers.
 
 def get_positive(x):
-    return x*(x>0.)  #Possibly it has to be x>1e-10.
+    if (size(x)==1):
+        return x*(x>0.)  #Possibly it has to be x>1e-10.
+    else:
+        y = np.zeros(size(x))
+        for i in range(len(x)):
+            y[i] = x[i]*(x[i]>0)
+        return y
 
 class node:
     def __init__(self,path,fileName,ID):
