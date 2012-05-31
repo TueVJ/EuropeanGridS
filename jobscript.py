@@ -386,55 +386,6 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_i
     return Bvsg
 
 
-def get_balancing_quantiles_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_inv=False):
-    ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
-           'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
-           'ES', 'LU', 'SK']
-
-    filename = prefix
-    if (linecap.find('balred')>=0):
-        filename += '_'+linecap
-    else:
-        filename += '_linecap_'+linecap
-    filename +=('_step_%u' % step)
-    if (linecap.find('balred')>=0):
-        if (capped_inv): filename += '_capped_investment'
-        else:
-            if (step == 3): filename += '_alternative_copper'
-    print filename
-    if os.path.exists('./results/Bqvsg_'+filename+'.npy'):
-        Bvsg=np.load('./results/Bqvsg_'+filename+'.npy')
-        return Bvsg
-    years=arange(1990,2050+1,1)
-    Bvsg=np.zeros((len(years),len(ISO)))
-    j=0
-    for year in years:
-        load_filename = prefix+('_year_%u' %year)
-        if (linecap.find('balred')>=0):
-            load_filename += '_'+linecap
-        else:
-            load_filename += '_linecap_'+linecap
-        load_filename += ('_step_%u' % step)
-        if (linecap.find('balred')>=0):
-            if (capped_inv): load_filename += '_capped_investment'
-            else:
-                if (step == 3): load_filename += '_alternative_copper'
-        load_filename += '_nodes.npz'
-        print load_filename
-        N=Nodes(load_filename=load_filename)
-        a=0
-        d=0
-        for i in N:
-            a+=sum(i.balancing)
-            d+=i.mean*i.nhours
-        del N
-        c=a/d
-        Bvsg[j,1]=c
-        j+=1
-    np.save('./results/Bqvsg_'+filename,Bvsg)
-    return Bvsg
-
-
 def get_gamma_vs_year(path='./results/',prefix='logfit_gamma',step=2):
     filename = prefix+'_vs_year_step_%u.npy' % step
     if os.path.exists(path+filename):
@@ -691,16 +642,17 @@ def get_balancing_and_deficit(path='./results/',datpath='./data/',step=2,linecap
            'ES', 'LU', 'SK']
         
     years = arange(1990,2050+1,1)
-    balancing = np.zeros(len(years),len(ISO))
-    deficit = np.zeros(len(years),len(ISO))
+    balancing = np.zeros((len(years),len(ISO)))
+    deficit = np.zeros((len(years),len(ISO)))
+    N_ref = Nodes()
     for year in years:
         fname = 'logfit_gamma_year_%u' % year
-        if (linecap.find('balred') >= 0): fname += '_'+linecap
+        if ('balred' in linecap): fname += '_'+linecap
         else: fname += '_linecap_'+linecap
-        fname += '_step_%u_nodes' % step
-        if ((step == 3) and (linecap.find('balred') >= 0)):
-            fname += '_alternative_copper'
-        fname += '.npz'
+        fname += '_step_%u' % step
+        if ('balred' in linecap):
+            fname += '_capped_investment'
+        fname += '_nodes.npz'
         N = Nodes(load_filename=fname)
         gamma = np.zeros(len(N))
         alpha = np.zeros(len(N))
@@ -711,13 +663,12 @@ def get_balancing_and_deficit(path='./results/',datpath='./data/',step=2,linecap
             alpha[n.id] = n.alpha
             gamma[n.id] = n.gamma
         del N
-        N = Nodes()
-        N.set_alphas(alpha)
-        N.set=gammas(gamma)
-        for n in N:
-            load = n.mean*n.hours
+        N_ref.set_alphas(alpha)
+        N_ref.set_gammas(gamma)
+        for n in N_ref:
+            load = n.mean*n.nhours
             dfc = sum(get_positive(-n.mismatch))/load
-            deficit[year-1990,n.id] = dcf
+            deficit[year-1990,n.id] = dfc
 
     lc = linecap
     if (lc.find('balred') == -1):
@@ -737,16 +688,17 @@ def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,lineca
            'ES', 'LU', 'SK']
         
     years = arange(1990,2050+1,1)
-    curtailment = np.zeros(len(years),len(ISO))
-    excess = np.zeros(len(years),len(ISO))
+    curtailment = np.zeros((len(years),len(ISO)))
+    excess = np.zeros((len(years),len(ISO)))
+    N_ref = Nodes()
     for year in years:
         fname = 'logfit_gamma_year_%u' % year
-        if (linecap.find('balred') >= 0): fname += '_'+linecap
+        if ('balred' in linecap): fname += '_'+linecap
         else: fname += '_linecap_'+linecap
-        fname += '_step_%u_nodes' % step
-        if ((step == 3) and (linecap.find('balred') >= 0)):
-            fname += '_alternative_copper'
-        fname += '.npz'
+        fname += '_step_%u' % step
+        if ('balred' in linecap):
+            fname += '_capped_investment'
+        fname += '_nodes.npz'
         N = Nodes(load_filename=fname)
         gamma = np.zeros(len(N))
         alpha = np.zeros(len(N))
@@ -757,13 +709,13 @@ def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,lineca
             alpha[n.id] = n.alpha
             gamma[n.id] = n.gamma
         del N
-        N = Nodes()
-        N.set_alphas(alpha)
-        N.set=gammas(gamma)
-        for n in N:
-            load = n.mean*n.hours
-            dfc = sum(get_positive(-n.mismatch))/load
-            excess[year-1990,n.id] = dcf
+        N_ref.set_alphas(alpha)
+        N_ref.set_gammas(gamma)
+        for n in N_ref:
+            load = n.mean*n.nhours
+            exc = sum(get_positive(-n.mismatch))/load
+            excess[year-1990,n.id] = exc
+
     lc = linecap
     if (lc.find('balred') == -1):
         lc = 'linecap_'+lc
@@ -772,6 +724,123 @@ def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,lineca
         outfile = 'curtailment_and_excess_%s_step_%u_%s.npy' % (lc,step,iso)
         data=np.array([np.array(years),np.array(curtailment[:,i]),np.array(excess[:,i])])
         np.save(path+outfile,data)
+        i += 1
+    return
+
+
+def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,linecap='copper'):
+    ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
+           'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
+           'ES', 'LU', 'SK']
+        
+    years = arange(1990,2050+1,1)
+    quant=[0.9,0.99,1.]
+    bal_quant = np.zeros((len(years),len(ISO),len(quant)))
+    for year in years:
+        fname = 'logfit_gamma_year_%u' % year
+        if ('balred' in linecap): fname += '_'+linecap
+        else: fname += '_linecap_'+linecap
+        fname += '_step_%u' % step
+        if ('balred' in linecap):
+            fname += '_capped_investment'
+        fname += '_nodes.npz'
+        N = Nodes(load_filename=fname)
+        for n in N:
+            bal = n.balancing
+            hst = hist(bal,cumulative=True,bins=500,normed=True)
+            for i in range(len(quant)):
+                for j in range(len(hst[0])):
+                    if hst[0][j]>=quant[i]:
+                        bal_quant[year-1990,n.id,i]=hst[1][j]
+                        break
+                if j == len(hst[0]) - 1:
+                    bal_quant[year-1990,n.id,i]=max(hst[1][:])
+            clf()
+        del N
+
+    lc = linecap
+    if (not ('balred' in lc)):
+        lc = 'linecap_'+lc
+    i=0
+    for iso in ISO:
+        outfile = 'balancing_quantiles_%s_step_%u_%s.npy' % (lc,step,iso)
+        np.save(path+outfile,bal_quant[:,i,:])
+        i += 1
+    return
+
+
+def get_excess_quantiles_vs_year(path='./results/',datpath='./data/',step=2,linecap='copper'):
+    ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
+           'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
+           'ES', 'LU', 'SK']
+        
+    years = arange(1990,2050+1,1)
+    quant=[0.9,0.99,1.]
+    excess_quant = np.zeros((len(years),len(ISO),len(quant)))
+    N = Nodes()
+    for year in years:
+        gammas=array(get_basepath_gamma(year,step=step))
+        alphas=array(get_basepath_alpha(year,step=step))
+        N.set_alphas(alphas)
+        N.set_gammas(gammas)
+        for n in N:
+            excess = get_positive(n.mismatch)
+            hst = hist(excess,cumulative=True,bins=500,normed=True)
+            for i in range(len(quant)):
+                for j in range(len(hst[0])):
+                    if hst[0][j]>=quant[i]:
+                        excess_quant[year-1990,n.id,i]=hst[1][j]
+                        break
+                if j == len(hst[0]) - 1:
+                    excess_quant[year-1990,n.id,i]=max(hst[1][:])
+            clf()
+    del N
+
+    lc = linecap
+    if (not ('balred' in lc)):
+        lc = 'linecap_'+lc
+    i=0
+    for iso in ISO:
+        outfile = 'excess_quantiles_%s_step_%u_%s.npy' % (lc,step,iso)
+        np.save(path+outfile,excess_quant[:,i,:])
+        i += 1
+    return
+
+
+def get_deficit_quantiles_vs_year(path='./results/',datpath='./data/',step=2,linecap='copper'):
+    ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
+           'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
+           'ES', 'LU', 'SK']
+        
+    years = arange(1990,2050+1,1)
+    quant=[0.9,0.99,1.]
+    deficit_quant = np.zeros((len(years),len(ISO),len(quant)))
+    N = Nodes()
+    for year in years:
+        gammas=array(get_basepath_gamma(year,step=step))
+        alphas=array(get_basepath_alpha(year,step=step))
+        N.set_alphas(alphas)
+        N.set_gammas(gammas)
+        for n in N:
+            deficit = get_positive(-n.mismatch)
+            hst = hist(deficit,cumulative=True,bins=500,normed=True)
+            for i in range(len(quant)):
+                for j in range(len(hst[0])):
+                    if hst[0][j]>=quant[i]:
+                        deficit_quant[year-1990,n.id,i]=hst[1][j]
+                        break
+                if j == len(hst[0]) - 1:
+                    deficit_quant[year-1990,n.id,i]=max(hst[1][:])
+            clf()
+    del N
+
+    lc = linecap
+    if (not ('balred' in lc)):
+        lc = 'linecap_'+lc
+    i=0
+    for iso in ISO:
+        outfile = 'deficit_quantiles_%s_step_%u_%s.npy' % (lc,step,iso)
+        np.save(path+outfile,deficit_quant[:,i,:])
         i += 1
     return
 
