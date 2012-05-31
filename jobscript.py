@@ -1173,7 +1173,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
         i=0
-        pp_label = ['Overproduction','Export with copper plate transmission','Export with 90% balancing reduction transmission','Export with 50% balancing reduction transmission','Export with transmission lines as of today']
+        pp_label = ['overproduction','export with copper plate transmission','export with 90% balancing reduction transmission','export with 50% balancing reduction transmission','export with transmission lines as of today']
         for lica in lc:
             datfile = 'curtailment_and_excess_%s_step_%u_%s.npy' % (lica,step,iso)
             data = np.load(path+datfile)
@@ -1194,11 +1194,13 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
 
-        axis(xmin=1990,xmax=2050.5,ymin=0,ymax=3.)
+        axis(xmin=1990,xmax=2050.5,ymin=0,ymax=0.3)
         xlabel('year')
         ylabel(r'production/av.l.h.')
-        title_ += ISO2name(ISO=ISO)
-        fig.suptitle(title_,fontsize=14,y=0.96)
+        tlte = title_
+        if (iso=='NL' or iso=='CZ'): tlte += 'the ' # get the grammar right
+        tlte += ISO2name(ISO=iso)
+        fig.suptitle(tlte,fontsize=14,y=0.96)
 
         picname = 'excess_and_export_vs_year'+ ('_step_%u' %step) + ('_%s.png' % iso)
         save_figure(picname)
@@ -1220,7 +1222,7 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
         i=0
-        pp_label = ['Deficit','Import with copper plate transmission','Import with 90% balancing reduction transmission','Import with 50% balancing reduction transmission','Import with transmission lines as of today']
+        pp_label = ['deficit','import with copper plate transmission','import with 90% balancing reduction transmission','import with 50% balancing reduction transmission','import with transmission lines as of today']
         for lica in lc:
             datfile = 'balancing_and_deficit_%s_step_%u_%s.npy' % (lica,step,iso)
             data = np.load(path+datfile)
@@ -1241,41 +1243,47 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
 
-        axis(xmin=1990,xmax=2050.5,ymin=0,ymax=3.)
+        axis(xmin=1990,xmax=2050.5,ymin=0,ymax=.3)
         xlabel('year')
         ylabel(r'deficit/av.l.h.')
-        title_ += ISO2name(ISO=ISO)
-        fig.suptitle(title_,fontsize=14,y=0.96)
+        tlte = title_
+        if (iso=='NL' or iso=='CZ'): tlte += 'the ' # get the grammar right
+        tlte += ISO2name(ISO=iso)
+        fig.suptitle(tlte,fontsize=14,y=0.96)
 
         picname = 'deficit_and_import_vs_year'+ ('_step_%u' %step) + ('_%s.png' % iso)
         save_figure(picname)
 
 
-def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=[0.9,0.99,1.0],step=2,linecap='copper'):
+def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2):
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
 
     years=arange(1990,2050+1,1)
-
-    if ('balred' in linecap): lc=balred
-    else: lc='linecap_'+linecap
-
-    lbl=[]
-    for qnt in quant:
-        percent=qnt*100
-        lbl.append('%3u%% %s quantiles' % (percent,qtype))
+    linecap=['linecap_0.40Q','linecap_today','balred_0.50','balred_0.90','linecap_copper']
+    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
 
     for iso in ISO:
-        filename='%s_quantiles_%s_step_%u_%s.npy' % (qtype,lc,step,iso)
-        quantiles=np.load(path+filename) # (years,quant) array
         fig=figure(1); clf()
         ax=subplot(1,1,1)
         pp_x=years
-        for i in range(len(quant)):
-            pp_y=quantiles[:,len(quant)-1-i] # go backwards
-            ax.bar(pp_x-0.35,pp_y,color=cl[i],label=lbl[len(quant)-1-i])
+        i=0
+        for lc in linecap:
+            filename='%s_quantiles_%s_step_%u_%s.npy' % (qtype,lc,step,iso)
+            quantiles=np.load(path+filename) # (years,quant) array
+            if (quant==0.9):
+                quantile=quantiles[:,0]
+            elif (quant==0.99):
+                quantile=quantiles[:,1]
+            elif (quant==1.):
+                quantile=quantiles[:,2]
+            else:
+                print ('quant %.2f not available!' % quant)
+                return
+            ax.bar(pp_x-0.35,quantile,color=cl[i],label=lbl[i])
+            i += 1
         if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
         if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
         leg=ax.legend(loc='upper left',title=title_leg)
@@ -1285,12 +1293,66 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=[0.9,0.99,1
         axis(xmin=1990,xmax=2050.5,ymin=0)
         xlabel('year')
         ylabel(('%s quantiles/av.l.h.' % qtype))
-        title_ = ('%s quantiles for ' % qtype)+ ISO2name(ISO=ISO)
+        title_ = ('%u%% %s quantiles for ' % (100.*quant,qtype))+ ISO2name(ISO=ISO)
         fig.suptitle(title_,fontsize=14,y=0.96)
 
-        
-        picname = ('%s_quantiles_vs_year' %qtype)+ ('_step_%u' %step)+ ('_%s.png' % iso)
+        picname = ('%u_percent_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ ('_%s.png' % iso)
         save_figure(picname)
+
+
+def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2):
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
+           'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
+           'ES', 'LU', 'SK']
+
+    years=arange(1990,2050+1,1)
+
+    linecap=['linecap_0.40Q','linecap_today','balred_0.50','balred_0.90','linecap_copper']
+    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+
+    N=Nodes()
+    weight=[]
+    for n in N:
+        weight.append(n.mean*n.nhours)
+
+    fig=figure(1); clf()
+    ax=subplot(1,1,1)
+    pp_x=years
+    i=0
+    for lc in linecap:
+        quantile=np.zeros(len(years))
+        j=0
+        for iso in ISO:
+            filename='%s_quantiles_%s_step_%u_%s.npy' % (qtype,lc,step,iso)
+            quantiles=np.load(path+filename) # (years,quant) array
+            if (quant==0.9):
+                quantile += weight[j]*np.array(quantiles[:,0])
+            elif (quant==0.99):
+                quantile += weight[j]*np.array(quantiles[:,1])
+            elif (quant==1.):
+                quantile += weight[j]*np.array(quantiles[:,2])
+            else:
+                print ('quant %.2f not available!' % quant)
+                return
+            j += 1
+        quantile /= sum(weight)
+        ax.bar(pp_x-0.35,quantile,color=cl[i],label=lbl[i])
+        i += 1
+    if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
+    if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+    leg=ax.legend(loc='upper left',title=title_leg)
+    ltext  = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+
+    axis(xmin=1990,xmax=2050.5,ymin=0)
+    xlabel('year')
+    ylabel(('%s quantiles/av.l.h.' % qtype))
+    title_ = ('%u%% %s quantiles for Europe' % (100.*quant,qtype))
+    fig.suptitle(title_,fontsize=14,y=0.96)
+
+    picname = ('%u_percent_cumulative_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ '.png'
+    save_figure(picname)
         
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
