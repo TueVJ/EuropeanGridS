@@ -1265,6 +1265,7 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
     linecap=['linecap_0.40Q','linecap_today','balred_0.50','balred_0.90','linecap_copper']
     lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
 
+    nhours = 70128
     for iso in ISO:
         fig=figure(1); clf()
         ax=subplot(1,1,1)
@@ -1274,11 +1275,11 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
             filename='%s_quantiles_%s_step_%u_%s.npy' % (qtype,lc,step,iso)
             quantiles=np.load(path+filename) # (years,quant) array
             if (quant==0.9):
-                quantile=quantiles[:,0]
+                quantile=nhours*quantiles[:,0]
             elif (quant==0.99):
-                quantile=quantiles[:,1]
+                quantile=nhours*quantiles[:,1]
             elif (quant==1.):
-                quantile=quantiles[:,2]
+                quantile=nhours*quantiles[:,2]
             else:
                 print ('quant %.2f not available!' % quant)
                 return
@@ -1290,10 +1291,10 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
 
-        axis(xmin=1990,xmax=2050.5,ymin=0)
+        axis(xmin=1990,xmax=2050.5,ymin=0,ymax=2.5)
         xlabel('year')
         ylabel(('%s quantiles/av.l.h.' % qtype))
-        title_ = ('%u%% %s quantiles for ' % (100.*quant,qtype))+ ISO2name(ISO=ISO)
+        title_ = ('%u%% %s quantiles for ' % (100.*quant,qtype))+ ISO2name(ISO=iso)
         fig.suptitle(title_,fontsize=14,y=0.96)
 
         picname = ('%u_percent_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ ('_%s.png' % iso)
@@ -1313,8 +1314,11 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
 
     N=Nodes()
     weight=[]
+    nhours=0
     for n in N:
         weight.append(n.mean*n.nhours)
+    nhours=N[0].nhours
+    del N
 
     fig=figure(1); clf()
     ax=subplot(1,1,1)
@@ -1327,11 +1331,11 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
             filename='%s_quantiles_%s_step_%u_%s.npy' % (qtype,lc,step,iso)
             quantiles=np.load(path+filename) # (years,quant) array
             if (quant==0.9):
-                quantile += weight[j]*np.array(quantiles[:,0])
+                quantile += weight[j]*nhours*np.array(quantiles[:,0])
             elif (quant==0.99):
-                quantile += weight[j]*np.array(quantiles[:,1])
+                quantile += weight[j]*nhours*np.array(quantiles[:,1])
             elif (quant==1.):
-                quantile += weight[j]*np.array(quantiles[:,2])
+                quantile += weight[j]*nhours*np.array(quantiles[:,2])
             else:
                 print ('quant %.2f not available!' % quant)
                 return
@@ -1345,7 +1349,7 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
 
-    axis(xmin=1990,xmax=2050.5,ymin=0)
+    axis(xmin=1990,xmax=2050.5,ymin=0,ymax=2.5)
     xlabel('year')
     ylabel(('%s quantiles/av.l.h.' % qtype))
     title_ = ('%u%% %s quantiles for Europe' % (100.*quant,qtype))
