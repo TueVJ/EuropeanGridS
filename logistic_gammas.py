@@ -7,7 +7,7 @@ from Database_v2 import *
 ########### Access the results #######################
 ######################################################
 
-def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2,combifit=True):
+def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2,combifit=False):
     '''Return basepath gamma for year year and the basepath specified by
     filename, step, and combifit.'''
     filename += '_step_%u' % step
@@ -27,7 +27,7 @@ def get_basepath_gamma(year,filename='./results/basepath_gamma',step=2,combifit=
     return gamma
 
 
-def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2,combifit=True):
+def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2,combifit=False):
     '''Return basepath alpha for year year and the basepath specified by
     filename, step, and combifit.'''
     filename += '_step_%u' % step
@@ -51,7 +51,7 @@ def get_basepath_alpha(year,filename='./results/basepath_alpha_w',step=2,combifi
 ########### Generate the results #####################
 ######################################################
 
-def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,combifit=True,step=2):
+def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,plot_on=True,combifit=False,step=2):
 
     print "Loading: {0}. Warning columns not pre-labeled!!".format(txtfile)
     txttitles = ['Year', 'Austria (wind)', 'Austria (solar)', 'Belgium (wind)', 'Belgium (solar)','Bulgaria (wind)','Bulgaria (solar)','Bosnia and Herzegovina (wind)','Bosnia and Herzegovina (solar)', 'Czech Republic (wind)', 'Czech Republic (solar)', 'Switzerland (wind)', 'Switzerland (solar)', 'Germany (wind)', 'Germany (solar)', 'Denmark (wind)', 'Denmark (solar)', 'Spain (wind)', 'Spain (solar)', 'France (wind)', 'France (solar)', 'Finland (wind)', 'Finland (solar)', 'Great Britain (wind)', 'Great Britain (solar)', 'Greece (wind)', 'Greece (solar)', 'Hungary (wind)', 'Hungary (solar)', 'Italy (wind)', 'Italy (solar)', 'Ireland (wind)', 'Ireland (solar)', 'Croatia (wind)', 'Croatia (solar)', 'Luxembourg (wind)', 'Luxembourg (solar)', 'Norway (wind)', 'Norway (solar)', 'Netherlands (wind)', 'Netherlands (solar)', 'Portugal (wind)', 'Portugal (solar)', 'Poland (wind)', 'Poland (solar)', 'Romania (wind)', 'Romania (solar)', 'Sweden (wind)', 'Sweden (solar)', 'Slovakia (wind)', 'Slovakia (solar)', 'Slovenia (wind)', 'Slovenia (solar)', 'Serbia (wind)', 'Serbia (solar)']
@@ -68,8 +68,10 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     'SK-solar', 'SI-wind', 'SI-solar', 'RS-wind', 'RS-solar']
     data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
     
-    p_year = array(data[0][2:-4])
+    p_year = array(data[0][2:25])
     # print p_year
+    # print data[0][23:]
+    # print data[1][23:]
     year = arange(amin(p_year),amax(p_year)+1,1)
     
     if plot_on==True:
@@ -81,23 +83,25 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     
     gamma, alpha_w = [], []
     for i in arange(1,data.shape[0]-1,2): # loop over countries
-        wind = array(data[i][2:-4])
-        solar = array(data[i+1][2:-4])
+        wind = array(data[i][2:25])
+        solar = array(data[i+1][2:25])
+        for j in arange(21,26,1):
+            if (step == j):
+                wind[-1] = data[i][j+4] # take alternative values for 2050
+                solar[-1] = data[i+1][j+4]
         if (step == 3):
-            wind[-1] = data[i][-4] # take alternative values for 2050 in step 3
-            solar[-1] = data[i+1][-4]
-        elif (step == 4):
-            wind[-1] = data[i][-3] # take alternative values for 2050 in step 4
-            solar[-1] = data[i+1][-3]
-        elif (step == 22):
-            wind[-1] = data[i][-2] # take alternative values for 2050 in step 22
-            solar[-1] = data[i+1][-2]
-        elif (step == 32):
-            wind[-1] = data[i][-1] # take alternative values for 2050 in step 32
+            wind[-1] = data[i][30] # take alternative values for 2050
+            solar[-1] = data[i+1][30]
+        for j in arange(31,36,1):
+            if (step == j):
+                wind[-1] = data[i][j] # take alternative values for 2050
+                solar[-1] = data[i+1][j]
+        if (step == 4):
+            wind[-1] = data[i][-1] # take alternative values for 2050 in step 4
             solar[-1] = data[i+1][-1]
         # print 'country: ',txttitles[i]
-        # print 'wind: ',wind
-        # print 'solar: ',solar
+        # print 'wind: ',wind[-1]
+        # print 'solar: ',solar[-1]
 
         if (combifit and txtlabels[i] != 'ES-wind'): # ES is messed up in combifit, so resort to separate fit in this case
             i_data_w = find(~isnan(wind))
@@ -163,7 +167,7 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     print 'Saved file: '+save_filename
 
 
-def generate_basepath_gamma_optimal_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,CS=None,rel_tol=1.e-2,plot_on=True,combifit=True,step=22):
+def generate_basepath_gamma_optimal_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',year0=1980,year_hist=2010,CS=None,rel_tol=1.e-2,plot_on=True,combifit=False,step=22):
 
     print "Loading: {0}. Warning columns not pre-labeled!!".format(txtfile)
     txttitles = ['Year', 'Austria (wind)', 'Austria (solar)', 'Belgium (wind)', 'Belgium (solar)','Bulgaria (wind)','Bulgaria (solar)','Bosnia and Herzegovina (wind)','Bosnia and Herzegovina (solar)', 'Czech Republic (wind)', 'Czech Republic (solar)', 'Switzerland (wind)', 'Switzerland (solar)', 'Germany (wind)', 'Germany (solar)', 'Denmark (wind)', 'Denmark (solar)', 'Spain (wind)', 'Spain (solar)', 'France (wind)', 'France (solar)', 'Finland (wind)', 'Finland (solar)', 'Great Britain (wind)', 'Great Britain (solar)', 'Greece (wind)', 'Greece (solar)', 'Hungary (wind)', 'Hungary (solar)', 'Italy (wind)', 'Italy (solar)', 'Ireland (wind)', 'Ireland (solar)', 'Croatia (wind)', 'Croatia (solar)', 'Luxembourg (wind)', 'Luxembourg (solar)', 'Norway (wind)', 'Norway (solar)', 'Netherlands (wind)', 'Netherlands (solar)', 'Portugal (wind)', 'Portugal (solar)', 'Poland (wind)', 'Poland (solar)', 'Romania (wind)', 'Romania (solar)', 'Sweden (wind)', 'Sweden (solar)', 'Slovakia (wind)', 'Slovakia (solar)', 'Slovenia (wind)', 'Slovenia (solar)', 'Serbia (wind)', 'Serbia (solar)']
@@ -535,10 +539,10 @@ def sort_to_node_order(arr):
     return sortarr
 
 
-'''def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
     figure(fignumber)
     savefig(path + figname, dpi=dpi)
     print 'Saved figure:',path + figname
     sys.stdout.flush()
-'''
+
