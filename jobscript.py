@@ -240,7 +240,7 @@ def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
     if (step == 2):
         copper_file = 'results/copper_flows.npy'
     else:
-        copper_file = 'results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+        copper_file = ('results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
     Nlinks = 44
     h_end = np.zeros((2*Nlinks,2))
     for i in range(2):
@@ -423,7 +423,11 @@ def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quan
             if (quantiles[i,j] == 0):
                 linecaps[i,j]=0
             else:
-                h=get_quant(quantiles[i,j])
+                if (step == 2):
+                    copper_file = 'results/copper_flows.npy'
+                else:
+                    copper_file = ('results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
+                h=get_quant(quantiles[i,j],filename=copper_file)
                 inv=0.
                 for l in range(len(h)):
                     inv += get_positive(h[l]-h0[l])
@@ -553,8 +557,8 @@ def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantil
             if (quantiles[i,j] == 0):
                 linecaps[i,j]=0
             else:
-                if (step == 3):
-                    copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
+                if (step != 2):
+                    copper_flow_file=('results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
                 else:
                     copper_flow_file='results/copper_flows.npy'
                 h=get_quant(quantiles[i,j],filename=copper_flow_file)
