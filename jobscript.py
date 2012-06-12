@@ -170,7 +170,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_gamma_balred_quantiles',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None,alternative_copper_flows=False):
+def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_gamma_balred_quantiles',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None):
         
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
@@ -197,16 +197,13 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
         save_filename = []
         for i in range(len(red)):
             save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
-        if (alternative_copper_flows):
-            for i in range(len(red)):
-                save_filename[i] += '_alternative_copper'
         f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
         guess=guesses[year-1990,:]
         if (2014 <= year and year <= 2017): guess=[0.80,0.88]
         if (last_quant[0] !=0): guess=last_quant
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,alter_copper=alternative_copper_flows)
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,stepname=step)
         quantiles.append(np.array(last_quant).copy())
         print quantiles
     qsave_file='logistic_gamma'
@@ -254,8 +251,6 @@ def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
                 link_flows=save_filename+'_flows.npy'
                 link_nodes=save_filename+'_nodes.npz'
                 target = 'logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)
-                if (step == 3):
-                    target += '_alternative_copper'
                 target_flows = target+'_flows.npy'
                 target_nodes = target+'_nodes.npz'
                 os.symlink(target_nodes,path+link_nodes)
@@ -349,8 +344,6 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_i
     filename +=('_step_%u' % step)
     if (linecap.find('balred')>=0):
         if (capped_inv): filename += '_capped_investment'
-        else:
-            if (step == 3): filename += '_alternative_copper'
     print filename
     if os.path.exists('./results/Bvsg_'+filename+'.npy'):
         Bvsg=np.load('./results/Bvsg_'+filename+'.npy')
@@ -368,8 +361,6 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_i
         load_filename += ('_step_%u' % step)
         if (linecap.find('balred')>=0):
             if (capped_inv): load_filename += '_capped_investment'
-            else:
-                if (step == 3): load_filename += '_alternative_copper'
         load_filename += '_nodes.npz'
         print load_filename
         N=Nodes(load_filename=load_filename)
@@ -477,8 +468,6 @@ def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',s
     filename += '_step_%u' % step
     if (linecap.find('balred')>=0):
         if (capped_inv): filename += '_capped_investment'
-        else:
-            if (step == 3): filename += '_alternative_copper'
     if os.path.exists(filename+'.npy'):
         Fvsg=np.load(filename+'.npy')
         return Fvsg
@@ -495,8 +484,6 @@ def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',s
         load_filename += ('_step_%u' % step)
         if (linecap.find('balred')>=0):
             if (capped_inv): load_filename += '_capped_investment'
-            else:
-                if (step == 3): load_filename += '_alternative_copper'
         load_filename += '_flows.npy'
         print load_filename
         flows=np.load(path+load_filename)
@@ -965,9 +952,6 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
         if (linecap.find('balred')>=0):
             if (capped_inv):
                 name += '_capped_investment'
-            else:
-                if step==3:
-                    name += '_alternative_copper'
         fname = 'Bvsg_'+name+'.npy'
         print 'Processing '+fname
         if not os.path.exists(path+fname):
@@ -1044,9 +1028,6 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
         if (linecap.find('balred')>=0):
             if (capped_inv):
                 name += '_capped_investment'
-            else:
-                if step==3:
-                    name += '_alternative_copper'
         fname = 'Fvsg_'+name+'.npy'
         print 'Processing '+fname
         if not os.path.exists(path+fname):

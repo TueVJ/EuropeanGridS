@@ -413,7 +413,7 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
     show()
 
 
-def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None,alter_copper=False):
+def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None,step_name=2):
 
     '''Loop over different quantile line capacities until the quantile
     is found that leads to a reduction of balancing by <reduction>
@@ -459,10 +459,7 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-3,guess=[0.
         olddist=0.
         balreal=0.
         while True:
-            if (alter_copper):
-                copper_flow_file='results/logfit_gamma_year_2050_linecap_copper_step_3_flows.npy'
-            else:
-                copper_flow_file='results/copper_flows.npy'
+            copper_flow_file=('results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % stepname)
             h=get_quant(quant[i],filename=copper_flow_file)
             # memory leak when the same N is used over and
             # over again (why?) -> del and new all the time
