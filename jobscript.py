@@ -170,7 +170,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_gamma_balred_quantiles',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None):
+def gamma_logfit_balred(red=[0.50,0.90],path='./results/',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None):
         
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
@@ -183,8 +183,6 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
         skip_end=60+1
     years= arange(1990+skip,1990+skip_end,1)
     quantiles = []
-    guessfile += ('_step_%u' % step) + '.npy'
-    guesses = np.load(path+guessfile)
     cfile = copper_file + ('_step_%u.npy' % step)
     balmins=np.load(path+cfile)[:,1]
     nfile = notrans_file + ('_step_%u.npy' % step)
@@ -200,7 +198,7 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',guessfile='logistic_ga
         f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
-        guess=guesses[year-1990,:]
+        guess=[0.,0.]
         if (2014 <= year and year <= 2017): guess=[0.80,0.88]
         if (last_quant[0] !=0): guess=last_quant
         last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,stepname=step)
