@@ -478,8 +478,8 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-4,guess=[0.
             reldist=abs(1.-balreal/baltarget)
             dist=baltarget-balreal
             if (reldist < eps or step<0.0001):
-                print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
-                print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
+                print '%9s %12s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
+                print '%9.6f %12.6f %14.6f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
                 # if a filename is provided, save minimal nodes and flows
                 if (save_filename != None): 
                     N.save_nodes_small(save_filename[i]+'_nodes')
@@ -498,8 +498,8 @@ def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-4,guess=[0.
             if (quant[i]>=1.): # we are clearly overshooting -> go back
                 step=step/2.
                 quant[i]=0.9999
-            print '%12s %13s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
-            print '%12.8f %13.8f %14.4f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
+            print '%9s %12s %14s %9s %9s %9s' % ('distance','old distance','relative dist.','quantile','stepsize','balreal')
+            print '%9.6f %12.6f %14.6f %9.4f %9.6f %9.7f' % (dist, olddist, reldist,quant[i],step,balreal)
             olddist=dist
             print 'gc.get_count before collection ',gc.get_count()
             gc.collect()

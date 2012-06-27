@@ -3,6 +3,7 @@ import scipy.optimize as optimize
 from logistic_gammas import *
 from Database_v2 import * # only needed for optimal alphas
 from mpl_toolkits.axes_grid1 import host_subplot
+from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
 
@@ -1328,6 +1329,12 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
     picname = ('%u_percent_cumulative_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ '.png'
     save_figure(picname)
         
+
+def plot_balancing_vs_year_3d():
+    fig=plt.figure(1); plt.clf()
+    ax = fig.add_subplot(111,projection='3d')
+    plt.show(1)
+    
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	

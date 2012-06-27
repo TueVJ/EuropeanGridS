@@ -14,7 +14,7 @@ import sys
 
 #Custom functions
 from shortcuts import *
-from Database_v1 import get_data_countries, get_data_regions
+from Database_v2 import get_data_countries, get_data_regions
 from MortenStorage import get_policy_2_storage
 
 #Specific functions, not sure if all are actually used
