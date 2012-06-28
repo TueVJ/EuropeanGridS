@@ -339,7 +339,7 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_i
     filename +=('_step_%u' % step)
     if (linecap.find('balred')>=0):
         if (capped_inv): filename += '_capped_investment'
-    print filename
+    #print filename
     if os.path.exists('./results/Bvsg_'+filename+'.npy'):
         Bvsg=np.load('./results/Bvsg_'+filename+'.npy')
         return Bvsg
@@ -1330,10 +1330,45 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
     save_figure(picname)
         
 
-def plot_balancing_vs_year_3d():
+def plot_balancing_vs_year_3d(path='./results',skip=25,step=2):
     fig=plt.figure(1); plt.clf()
+    fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ax = fig.add_subplot(111,projection='3d')
+    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
+    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
+    steps = []
+    if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
+    elif step==3: steps=[31,32,33,3,34,35]
+    else: print 'invalid step ',step; return
+    # get the coordinates of the lines
+    years = np.arange(1990+skip,2050+1,1) # X
+    scenarios = range(len(steps)) # Y
+    X, Y = np.meshgrid(scenarios,years)
+    ii=0
+    for lc in linecap: # one surface for each linecap
+        bvsg = np.zeros((len(scenarios),len(years))) # Z
+        i=0
+        for st in steps:
+            data = get_balancing_vs_year(linecap=lc,step=st,capped_inv=True)
+            gamma_vs_year=np.array(get_gamma_vs_year(step=st))[skip:]
+            bvsg[i,:] = data[skip:,1]-(1.-gamma_vs_year)
+            i += 1
+        ax.plot_surface(X,Y,bvsg.T,alpha=0.3,rstride=5,cstride=1,color=cl[4-ii],label=lbl[ii])
+        ax.plot([],[],color=cl[4-ii],label=lbl[ii],lw=8,alpha=0.3) # only for legend
+        ii+=1
+    ax.set_xticklabels(mixes)
+    ax.set_xlabel('Final 2050 wind/solar mix')
+    ax.set_ylabel('Reference year')
+    ax.set_zlabel('Excess balancing/av.h.l.')
+    #ax.set_zlim([0.,0.5])
+    leg = ax.legend(loc='upper left')
+    ltext  = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+    plt.draw()
     plt.show(1)
+    return
     
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
