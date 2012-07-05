@@ -1523,8 +1523,30 @@ def plot_balancing_vs_scenario(path='./results/',year=2035,step=2,capped_inv=Tru
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
     elif step==3: steps=[31,32,33,3,34,35]
     else: print 'invalid step ',step; return
-    scenarios = range(len(steps))
+    scenarios = arange(1,len(steps)+1,1.)
     # one plot for each transmission layout
+    i=0
+    for lc in linecap:
+        bvss = np.zeros(len(steps))
+        j = 0
+        for st in steps:
+            gamma_vs_year=get_gamma_vs_year(step=st)
+            data = get_balancing_vs_year(step=st,linecap=lc,capped_inv=capped_inv)
+            bvss[j] = data[year-1990,1]-(1.-gamma_vs_year[year-1990])
+            j += 1
+        ax.bar(scenarios-0.4,bvss,width=0.8,color=cl[i],label=lbl[i])
+        i += 1
+    ax.set_xticks(scenarios)
+    ax.set_xticklabels(mixes)
+    leg = legend()
+    ltext  = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+    ax.axis(xmin=0.4,xmax=6.6,ymin=0.,ymax=0.5)
+    ax.set_xlabel('Final 2050 wind/solar mix')
+    ax.set_ylabel('Excess balancing/av.h.l.')
+    fig.suptitle('%u' % year)
+    plt.show(1)
+    return
     
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
