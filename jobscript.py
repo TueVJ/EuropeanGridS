@@ -574,13 +574,14 @@ def get_investment_vs_year(path='./results',prefix='logistic_gamma_balred_quanti
     return investment
 
 
-def get_balancing_and_deficit(path='./results/',datpath='./data/',step=2,linecap='copper'):
+def get_import_and_deficit(path='./results/',datpath='./data/',step=2,linecap='copper'):
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
         
     years = arange(1990,2050+1,1)
-    balancing = np.zeros((len(years),len(ISO)))
+    # years = arange(2010,2030+1,1)
+    node_import = np.zeros((len(years),len(ISO)))
     deficit = np.zeros((len(years),len(ISO)))
     N_ref = Nodes()
     for year in years:
@@ -596,28 +597,29 @@ def get_balancing_and_deficit(path='./results/',datpath='./data/',step=2,linecap
         alpha = np.zeros(len(N))
         for n in N:
             load = n.mean*n.nhours
-            # count only excess balancing
             alpha[n.id] = n.alpha
             gamma[n.id] = n.gamma
-            bal = sum(n.balancing)/load - (1.-n.gamma)
-            balancing[year-1990,n.id] = bal
-        del N
         N_ref.set_alphas(alpha)
         N_ref.set_gammas(gamma)
-        for n in N_ref:
+        for (n,n_ref) in zip(N,N_ref):
+            n.mismatch=n_ref.mismatch
+        for n in N:
             load = n.mean*n.nhours
+            imp = sum(n.get_import())/load
+            node_import[year-min(years),n.id] = imp
             # for gamma < 1: remember that part of neg. mismatch 
             # is still covered conventionally (only "excess deficit" matters)
             dfc = sum(get_positive(-n.mismatch))/load - (1.-n.gamma)
-            deficit[year-1990,n.id] = dfc
+            deficit[year-min(years),n.id] = dfc
+        del N
 
     lc = linecap
     if (lc.find('balred') == -1):
         lc = 'linecap_'+lc
     i=0
     for iso in ISO:
-        outfile = 'balancing_and_deficit_%s_step_%u_%s.npy' % (lc,step,iso)
-        data=np.array([np.array(years),np.array(balancing[:,i]),np.array(deficit[:,i])])
+        outfile = 'import_and_deficit_%s_step_%u_%s.npy' % (lc,step,iso)
+        data=np.array([np.array(years),np.array(node_import[:,i]),np.array(deficit[:,i])])
         np.save(path+outfile,data)
         i += 1
     return
@@ -1194,23 +1196,27 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         if ('balred' in lica): lc.append(lica)
         else: lc.append('linecap_'+lica)
 
-    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    cl = ['#490A3D','#8A9B0F','#F8CA00','#E97F02','#BD1550'] # by sugar (CL)
     for iso in ISO:
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
         i=0
         pp_label = ['deficit','import with copper plate transmission','import with 90% balancing reduction transmission','import with 50% balancing reduction transmission','import with transmission lines as of today']
         for lica in lc:
-            datfile = 'balancing_and_deficit_%s_step_%u_%s.npy' % (lica,step,iso)
+            datfile = 'import_and_deficit_%s_step_%u_%s.npy' % (lica,step,iso)
             data = np.load(path+datfile)
             years = data[0,:]
-            balancing = data[1,:]
-            deficit = data[2,:]
+            node_import = np.array(data[1,:])
+            deficit = np.array(data[2,:])
             pp_x=years
+            pp_y=np.zeros_like(years)
             if (i == 0):
                 pp_y=deficit
                 ax.bar(pp_x-0.35,pp_y,color=cl[0],label=pp_label[0])
-            pp_y=deficit-balancing # import
+            for j in range(len(deficit)):
+                print deficit[j],node_import[j]
+                pp_y[j]=min(deficit[j],node_import[j]) # import that covers "excess deficit"
+                print pp_y[j]
             ax.bar(pp_x-0.35,pp_y,color=cl[i+1],label=pp_label[i+1])
             i += 1
 
@@ -1586,11 +1592,11 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
     return
     
 
-def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+# def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
-    figure(fignumber)
-    savefig(path + figname, dpi=dpi)
-    print 'Saved figure:',path + figname
-    sys.stdout.flush()
+#     figure(fignumber)
+#     savefig(path + figname, dpi=dpi)
+#     print 'Saved figure:',path + figname
+#     sys.stdout.flush()
 
 
