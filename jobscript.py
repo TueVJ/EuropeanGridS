@@ -583,7 +583,6 @@ def get_balancing_and_deficit(path='./results/',datpath='./data/',step=2,linecap
     balancing = np.zeros((len(years),len(ISO)))
     deficit = np.zeros((len(years),len(ISO)))
     N_ref = Nodes()
-    gamma_vs_year= array(get_gamma_vs_year(step=step))
     for year in years:
         fname = 'logfit_gamma_year_%u' % year
         if ('balred' in linecap): fname += '_'+linecap
@@ -598,10 +597,10 @@ def get_balancing_and_deficit(path='./results/',datpath='./data/',step=2,linecap
         for n in N:
             load = n.mean*n.nhours
             # count only excess balancing
-            bal = sum(n.balancing)/load - (1.-gamma_vs_year[year-1990])
-            balancing[year-1990,n.id] = bal
             alpha[n.id] = n.alpha
             gamma[n.id] = n.gamma
+            bal = sum(n.balancing)/load - (1.-n.gamma)
+            balancing[year-1990,n.id] = bal
         del N
         N_ref.set_alphas(alpha)
         N_ref.set_gammas(gamma)
@@ -609,7 +608,7 @@ def get_balancing_and_deficit(path='./results/',datpath='./data/',step=2,linecap
             load = n.mean*n.nhours
             # for gamma < 1: remember that part of neg. mismatch 
             # is still covered conventionally (only "excess deficit" matters)
-            dfc = sum(get_positive(-n.mismatch))/load - (1.-gamma_vs_year[year-1990])
+            dfc = sum(get_positive(-n.mismatch))/load - (1.-n.gamma)
             deficit[year-1990,n.id] = dfc
 
     lc = linecap
@@ -1026,20 +1025,7 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     i=0
     #calculate average gamma as weighted mean of all countries for all years
     for linecap in linecaps:
-        if (linecap.find('balred')>=0):
-            name=prefix+'_'+linecap
-        else:
-            name = prefix+'_linecap_'+linecap
-        name += ('_step_%u' % step)
-        if (linecap.find('balred')>=0):
-            if (capped_inv):
-                name += '_capped_investment'
-        fname = 'Fvsg_'+name+'.npy'
-        print 'Processing '+fname
-        if not os.path.exists(path+fname):
-            data = get_flows_vs_year(prefix=prefix,step=step,linecap=linecap)
-        else:
-            data = np.load(path+fname)
+        data = get_flows_vs_year(prefix=prefix,step=step,linecap=linecap)
         pp_x = array(data[:,0])
         pp_y = array(data[:,1])/1.e9
         pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
@@ -1234,7 +1220,7 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
 
-        axis(xmin=1990,xmax=2050.5,ymin=0,ymax=.3)
+        axis(xmin=2010,xmax=2050.5,ymin=0,ymax=.3)
         xlabel('year')
         ylabel(r'deficit/av.l.h.')
         tlte = title_
@@ -1461,7 +1447,7 @@ def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_qua
     ax.set_xticklabels(mixes)
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Reference year')
-    ax.set_zlabel('Total new transmission line capacities/10^5 MW')
+    ax.set_zlabel('New transmission line capacities/10^5 MW')
     #ax.set_zlim([0.,0.5])
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
@@ -1501,7 +1487,7 @@ def plot_investment_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_q
     ax.set_xticklabels(mixes)
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Reference year')
-    ax.set_zlabel('Total new transmission line capacities/10^5 MW')
+    ax.set_zlabel('Total investment in NTC/10^5 MW')
     #ax.set_zlim([0.,0.5])
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
@@ -1545,6 +1531,57 @@ def plot_balancing_vs_scenario(path='./results/',year=2035,step=2,capped_inv=Tru
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Excess balancing/av.h.l.')
     fig.suptitle('%u' % year)
+    plt.show(1)
+    return
+
+
+def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
+    fig=plt.figure(1); plt.clf()
+    #fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    ax = fig.add_subplot(111)
+    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
+    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
+    steps = []
+    if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
+    elif step==3: steps=[31,32,33,3,34,35]
+    else: print 'invalid step ',step; return
+    scenarios = arange(1,len(steps)+1,1.)
+    # one plot for each transmission layout
+    i=0
+    for lc in linecap:
+        fvss = np.zeros(len(steps))
+        j = 0
+        # for st in steps:
+        #     data = get_flows_vs_year(step=st,linecap=lc,capped_inv=capped_inv)
+        #     fvss[j] = data[year-1990,1]*1.e-9
+        #     j += 1
+        ax.bar(scenarios-0.4,fvss,width=0.8,color=cl[i],label=lbl[i])
+        i += 1
+    ax.set_xticks(scenarios)
+    ax.set_xticklabels(mixes)
+    leg = legend(loc='upper left')
+    ltext = leg.get_texts();
+    setp(ltext, fontsize='small')    # the legend text fontsize
+    ax.axis(xmin=0.4,xmax=6.6,ymin=0.,ymax=7.)
+    ax.set_xlabel('Final 2050 wind/solar mix')
+    ax.set_ylabel(r'Sum of absolute flows/$10^9\,$MW')
+    fig.suptitle('%u' % year)
+    # replot in reverse order to get the bars right without messing up
+    # the legend
+    linecap.reverse()
+    cl.reverse()
+    i=0
+    for lc in linecap:
+        fvss = np.zeros(len(steps))
+        j = 0
+        for st in steps:
+            data = get_flows_vs_year(step=st,linecap=lc,capped_inv=capped_inv)
+            fvss[j] = data[year-1990,1]*1.e-9
+            j += 1
+        ax.bar(scenarios-0.4,fvss,width=0.8,color=cl[i])
+        i += 1
     plt.show(1)
     return
     
