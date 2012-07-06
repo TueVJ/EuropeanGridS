@@ -374,10 +374,10 @@ def sdcpf(N,admat='admat.txt',path='./settings/',copper=0,lapse=None,b=None,h0=N
     print "Complete calculation took %3.1f seconds." % (end-start)
     return F
 
-def get_quant(quant=0.99,filename='results/copper_flows.npy'):
-    outfile = 'results/linecap_quant_%.4f' % quant
-    if (filename != 'results/copper_flows.npy'):
-        outfile += '_'+filename[8:-10]
+def get_quant(quant=0.99,filename='./results/copper_flows.npy'):
+    outfile = './results/linecap_quant_%.4f' % quant
+    if (filename != './results/copper_flows.npy'):
+        outfile += '_'+filename[10:-10]
     outfile += '.npy'
     #print outfile
     if os.path.exists(outfile):
@@ -391,7 +391,9 @@ def get_quant(quant=0.99,filename='results/copper_flows.npy'):
     a=np.zeros(len(flows))
     hs=np.zeros(len(flows))
     for i in range(len(flows)):
-        a=hist(flows[i],cumulative=True,bins=500,normed=True)
+        fig=figure(47); clf()
+        ax=fig.add_subplot(111)
+        a=ax.hist(flows[i],cumulative=True,bins=500,normed=True)
         for j in range(len(a[0])):
             if (a[0][j]>=quant):
                 hs[i]=a[1][j]
