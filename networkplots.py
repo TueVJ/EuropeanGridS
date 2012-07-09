@@ -1,6 +1,7 @@
 #! /usr/bin/env python
-from zdcpf import *
 import networkx as nx
+from zdcpf import *
+from logistic_gammas import *
 
 def AtoKh_graph(N,pathadmat='./settings/admatold.txt'):
     Ad=np.genfromtxt(pathadmat,dtype='d')
@@ -29,7 +30,25 @@ def AtoKh_graph(N,pathadmat='./settings/admatold.txt'):
     return listFlows,G 
 
 
-def drawgrid(N):
+def get_node_colors(year=2035,step=2,combifit=False):
+    ''' Depending on gamma values from logfit, assign a color from red
+    (gamma=0) through yellow (gamma=0.5) to green (gamma=1) to each
+    node.'''
+    N=Nodes()
+    gamma = get_basepath_gamma(year,step=step,combifit=combifit)
+    labels = []
+    for i in N: labels.append(str(i.label))
+    # mix the color
+    cl = []
+    for gam in gamma:
+        rp = int(round(get_positive(256.-gam*2.*256.)))
+        gp = int(round(get_positive(gam*2.*256.-256.)))
+        cl.append('#'+('%2c' % rp) +('%2c' % gp)+('%2c' % 10))
+    node_colors=dict(zip(labels,cl))
+    return node_colors
+
+
+def drawgrid(N,node_colors=None):
     c,G=AtoKh_graph(N)
     pos=nx.spring_layout(G)
     pos['FI']=[1.0,1.2]
@@ -68,21 +87,22 @@ def drawgrid(N):
     ISO = ['AT', 'BE', 'BG', 'BA', 'CZ', 'CH', 'DE', 'DK', 'ES', 
     'FR', 'FI', 'GB', 'GR', 'HU', 'IT', 'IE', 'HR', 'LU', 'NO', 
     'NL', 'PT', 'PL', 'RO', 'SE', 'SK', 'SI', 'RS']
-
     labels=dict(zip(ISO, ['' for name in ISO]))
 
     figure(1); clf()
-    nx.draw_networkx(G,pos,node_size=500,node_color='b',facecolor=(1,1,1),labels=labels)
+    if (node_colors == None):
+        nx.draw_networkx(G,pos,node_size=500,node_color='b',facecolor=(1,1,1),labels=labels)
     esmall=[(u,v) for (u,v,d) in G.edges(data=True) if d['weight']<=500]
     emid=[(u,v) for (u,v,d) in G.edges(data=True) if d['weight']>500 and d['weight']<=1500]
     elarge=[(u,v) for (u,v,d) in G.edges(data=True) if d['weight']>1500]
 
-    nx.draw_networkx_edges(G,pos,edgelist=esmall,width=2)#1
-    nx.draw_networkx_edges(G,pos,edgelist=emid,width=2)#3
-    nx.draw_networkx_edges(G,pos,edgelist=elarge,width=2)#6
+    nx.draw_networkx_edges(G,pos,edgelist=esmall,width=1)#1
+    nx.draw_networkx_edges(G,pos,edgelist=emid,width=3)#3
+    nx.draw_networkx_edges(G,pos,edgelist=elarge,width=6)#6
+    # now draw custom labels
     nx.draw_networkx_labels(G,pos,font_size=16,font_color='w',font_family='sans-serif',font_style='bold')
     axis('off')
-    save_figure("weighted_graph.png") # save as png
+    save_figure('weighted_graph.png') # save as png
     #show() # display
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):

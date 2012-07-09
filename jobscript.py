@@ -1214,9 +1214,9 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
                 pp_y=deficit
                 ax.bar(pp_x-0.35,pp_y,color=cl[0],label=pp_label[0])
             for j in range(len(deficit)):
-                print deficit[j],node_import[j]
+                #print deficit[j],node_import[j]
                 pp_y[j]=min(deficit[j],node_import[j]) # import that covers "excess deficit"
-                print pp_y[j]
+                #print pp_y[j]
             ax.bar(pp_x-0.35,pp_y,color=cl[i+1],label=pp_label[i+1])
             i += 1
 
@@ -1592,11 +1592,11 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
     return
     
 
-# def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
-#     figure(fignumber)
-#     savefig(path + figname, dpi=dpi)
-#     print 'Saved figure:',path + figname
-#     sys.stdout.flush()
+    figure(fignumber)
+    savefig(path + figname, dpi=dpi)
+    print 'Saved figure:',path + figname
+    sys.stdout.flush()
 
 
