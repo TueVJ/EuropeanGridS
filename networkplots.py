@@ -2,6 +2,9 @@
 import networkx as nx
 from zdcpf import *
 from logistic_gammas import *
+import matplotlib.colors as col
+import numpy as np
+import matplotlib.pyplot as plt
 
 def AtoKh_graph(N,pathadmat='./settings/admatold.txt'):
     Ad=np.genfromtxt(pathadmat,dtype='d')
@@ -33,22 +36,35 @@ def AtoKh_graph(N,pathadmat='./settings/admatold.txt'):
 def get_node_colors(year=2035,step=2,combifit=False):
     ''' Depending on gamma values from logfit, assign a color from red
     (gamma=0) through yellow (gamma=0.5) to green (gamma=1) to each
-    node.'''
-    N=Nodes()
+    node => create a movie of development in time.'''
     gamma = get_basepath_gamma(year,step=step,combifit=combifit)
-    labels = []
-    for i in N: labels.append(str(i.label))
     # mix the color
     cl = []
     for gam in gamma:
-        rp = int(round(get_positive(256.-gam*2.*256.)))
-        gp = int(round(get_positive(gam*2.*256.-256.)))
-        cl.append('#'+('%2c' % rp) +('%2c' % gp)+('%2c' % 10))
-    node_colors=dict(zip(labels,cl))
-    return node_colors
+        rp = int(round(get_positive(255.-get_positive(gam-0.5)*2.*256.))) # red
+        gp = int(round(get_positive(255.-get_positive(0.5-gam)*2.*256.))) # green
+        cl.append('#{0:02X}{1:02X}{2:02X}'.format(rp,gp,10))
+    labels = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
+           'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
+           'ES', 'LU', 'SK']
+    color_dict = dict(zip(labels,cl))
+    return color_dict
 
 
-def drawgrid(N,node_colors=None):
+def get_color_map():
+    cl = []
+    for i in range(256):
+        rp = int(get_positive(255-get_positive(i-128)*2)) # red
+        gp = int(get_positive(255-get_positive(128-i)*2)) # green
+        cl.append('#{0:02X}{1:02X}{2:02X}'.format(rp,gp,70))
+    cmap3 = col.ListedColormap(cl,'indexed')
+    # a=np.outer(np.arange(0,1,0.01),np.ones(10))   # pseudo image data
+    # plt.imshow(a,aspect='auto',cmap=cm.get_cmap(cmap3),origin="lower")
+    # plt.show()
+    return cm.get_cmap(cmap3)
+
+
+def drawgrid(N,node_colors=None,figname='weighted_graph.png',path='./figures/',title_='Weighted network'):
     c,G=AtoKh_graph(N)
     pos=nx.spring_layout(G)
     pos['FI']=[1.0,1.2]
@@ -84,14 +100,27 @@ def drawgrid(N,node_colors=None):
             l*=1.8
 
     # hard work just to switch the stupid labels off in the first draw...
-    ISO = ['AT', 'BE', 'BG', 'BA', 'CZ', 'CH', 'DE', 'DK', 'ES', 
-    'FR', 'FI', 'GB', 'GR', 'HU', 'IT', 'IE', 'HR', 'LU', 'NO', 
-    'NL', 'PT', 'PL', 'RO', 'SE', 'SK', 'SI', 'RS']
+    ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
+           'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
+           'ES', 'LU', 'SK']
     labels=dict(zip(ISO, ['' for name in ISO]))
 
-    figure(1); clf()
+    fig=figure(1); clf()
     if (node_colors == None):
         nx.draw_networkx(G,pos,node_size=500,node_color='b',facecolor=(1,1,1),labels=labels)
+    else:
+        colors = [node_colors[v] for v in G] # put colors in right order
+        k=0
+        # check that node order matches color order
+        # check=True
+        # for v in G:
+        #     for l in range(len(ISO)):
+        #         if (ISO[l] == v and node_colors[ISO[l]] != colors[k]):
+        #             print ISO[l],v,node_colors[ISO[l]],colors[k]
+        #             check=False
+        #     k +=1
+        # print check
+        nx.draw_networkx(G,pos,node_size=500,node_color=colors,facecolor=(1,1,1),labels=labels)
     esmall=[(u,v) for (u,v,d) in G.edges(data=True) if d['weight']<=500]
     emid=[(u,v) for (u,v,d) in G.edges(data=True) if d['weight']>500 and d['weight']<=1500]
     elarge=[(u,v) for (u,v,d) in G.edges(data=True) if d['weight']>1500]
@@ -102,8 +131,46 @@ def drawgrid(N,node_colors=None):
     # now draw custom labels
     nx.draw_networkx_labels(G,pos,font_size=16,font_color='w',font_family='sans-serif',font_style='bold')
     axis('off')
-    save_figure('weighted_graph.png') # save as png
+    fig.suptitle(title_,fontsize=20)
+    # add a color bar if colors were given
+    if (node_colors != None):
+        ax1 = fig.add_axes([0.86, 0.18, 0.05, 0.64])
+        tcks = np.arange(0.,1.2,0.2)
+        lbls = ['{0:.2f}'.format(t) for t in tcks]
+        cb1 = mpl.colorbar.ColorbarBase(ax1, cmap=get_color_map())
+        cb1.set_ticks(tcks)
+        cb1.set_ticklabels(lbls)
+        cb1.set_label(r'VRES penetration $\gamma$',fontsize=14)
+        # color_map = get_color_map()
+        # pp=imshow([[],[]],cmap=color_map) # empty plot to get the color map
+        # x = colorbar(pp, ticks = tcks,ticklabels = lbls)
+    save_figure(figname,path=path) # save as png
     #show() # display
+
+
+def logfit_movie(years=np.arange(2010,2050+1,1),step=2,combifit=False):
+    # make pictures for each year
+    N=Nodes()
+    for year in years:
+        color_dict=get_node_colors(year=year,step=step,combifit=combifit)
+        figname = 'weighted_graph_year_{0:d}_step_{1:d}.png'.format(year,step)
+        title_='Reference year {0:d}'.format(year)
+        drawgrid(N,node_colors=color_dict,figname=figname,path='./figures/video_step_{0:d}/'.format(step),title_=title_)
+    # glue them together to make a movie
+    command = ('mencoder',
+           'mf://figures/video_step_{0:d}/'.format(step)+'*.png',
+           '-mf',
+           'type=png:w=800:h=600:fps=5',
+           '-ovc',
+           'lavc',
+           '-lavcopts',
+           'vcodec=mpeg4',
+           '-oac',
+           'copy',
+           '-o',
+           'video.avi')
+    os.spawnvp(os.P_WAIT, 'mencoder', command)
+    return
 
 def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
 	
