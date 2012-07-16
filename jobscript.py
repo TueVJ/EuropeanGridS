@@ -1379,7 +1379,7 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
         
 
@@ -1419,7 +1419,7 @@ def plot_flows_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
         
 
@@ -1459,7 +1459,7 @@ def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_qua
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
         
 
@@ -1499,7 +1499,7 @@ def plot_investment_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_q
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
 
 
@@ -1537,7 +1537,7 @@ def plot_balancing_vs_scenario(path='./results/',year=2035,step=2,capped_inv=Tru
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Excess balancing/av.h.l.')
     fig.suptitle('%u' % year)
-    plt.show(1)
+    plt.show()
     return
 
 
@@ -1588,7 +1588,7 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
             j += 1
         ax.bar(scenarios-0.4,fvss,width=0.8,color=cl[i])
         i += 1
-    plt.show(1)
+    plt.show()
     return
     
 
