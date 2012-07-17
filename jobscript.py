@@ -1147,7 +1147,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         if ('balred' in lica): lc.append(lica)
         else: lc.append('linecap_'+lica)
 
-    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    cl = ['#490A3D','#8A9B0F','#F8CA00','#E97F02','#BD1550'] # by sugar (CL)
     for iso in ISO:
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
