@@ -1,7 +1,7 @@
 from zdcpf import *
 import scipy.optimize as optimize
 from logistic_gammas import *
-from Database_v2 import * # only needed for optimal alphas
+from Database_v2 import *
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 ######################################################
 ########### Generate the results #####################
 ######################################################
+
 
 def copper_flow():
     N = Nodes()
@@ -1598,6 +1599,8 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
     linecap = ['0.40Q','today','balred_0.90']
     lbl = ['original mismatch','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction quantile line capacities']
     cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
+    bns=np.arange(-2.,4.01,0.01) # the bins for the histograms
+    gamma_vs_year=array(get_gamma_vs_year(step=step) # average gamma
     # linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
     # lbl = ['original mismatch','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -1617,7 +1620,8 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
             N = Nodes(load_filename=fname)
             mism = [(n.curtailment - n.balancing)/(n.mean) for n in N]
             mismatch.append(mism)
-            ISO = ['{}'.format(n.label) for n in N]
+            ISO = ['{0}'.format(n.label) for n in N]
+            gamma_country = [n.gamma for n in N]
         i = 0
         for iso in ISO:
             fig = plt.figure(1); plt.clf()
@@ -1625,15 +1629,17 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
             ax.grid(True)
             j = 0
             for lc in linecap:
-                # if j>0: continue
+                # if j>1: continue
                 xx = mismatch[j][i][:]
-                ax.hist(xx,color=cl[j],bins=250,histtype='step',align='mid')
+                ax.hist(xx,color=cl[j],bins=bns,histtype='step',align='mid')
                 ax.plot([],[],color=cl[j],label=lbl[j])
                 j += 1
-            leg = legend(title=ISO2name(ISO=iso)+', reference year {}'.format(year))
+            tlte =ISO2name(ISO=iso)+', reference year {0}'.format(year)+r'\n $\gamma_{\rm {0}}={1}$, $\gamma_{\rm\,avg}={2}$'.format(iso,gamma_country[i],gamma_vs_year[year-1990])
+            print tlte
+            leg = legend(title=tlte)
             ltext  = leg.get_texts();
             setp(ltext, fontsize='small')    # the legend text fontsize
-            ax.axis(xmin=-2.0,xmax=4.0,ymin=0,ymax=1400)
+            ax.axis(xmin=-2.0,xmax=4.0,ymin=0,ymax=2000)
             ax.set_xlabel('Mismatch between load and generation/av.h.l.')
             ax.set_ylabel('Incidence/h')
             filename = 'mismatch_distribution_year_{0}_step_{1}_{2}.png'.format(year,step,iso)
