@@ -1147,7 +1147,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         if ('balred' in lica): lc.append(lica)
         else: lc.append('linecap_'+lica)
 
-    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    cl = ['#490A3D','#8A9B0F','#F8CA00','#E97F02','#BD1550'] # by sugar (CL)
     for iso in ISO:
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
@@ -1173,7 +1173,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
 
-        axis(xmin=1990,xmax=2050.5,ymin=0,ymax=0.3)
+        axis(xmin=2010,xmax=2050.5,ymin=0,ymax=0.35)
         xlabel('year')
         ylabel(r'production/av.l.h.')
         tlte = title_
@@ -1226,7 +1226,7 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
 
-        axis(xmin=2010,xmax=2050.5,ymin=0,ymax=.3)
+        axis(xmin=2010,xmax=2050.5,ymin=0,ymax=.35)
         xlabel('year')
         ylabel(r'deficit/av.l.h.')
         tlte = title_
@@ -1379,7 +1379,7 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
         
 
@@ -1419,7 +1419,7 @@ def plot_flows_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
         
 
@@ -1459,7 +1459,7 @@ def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_qua
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
         
 
@@ -1499,7 +1499,7 @@ def plot_investment_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_q
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.draw()
-    plt.show(1)
+    plt.show()
     return
 
 
@@ -1537,7 +1537,7 @@ def plot_balancing_vs_scenario(path='./results/',year=2035,step=2,capped_inv=Tru
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Excess balancing/av.h.l.')
     fig.suptitle('%u' % year)
-    plt.show(1)
+    plt.show()
     return
 
 
@@ -1588,7 +1588,58 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
             j += 1
         ax.bar(scenarios-0.4,fvss,width=0.8,color=cl[i])
         i += 1
-    plt.show(1)
+    plt.show()
+    return
+
+
+def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,yearmin=2010,yearmax=2050):
+    #ISO = ['AT']
+    years = np.arange(yearmin,yearmax+1,5)
+    linecap = ['0.40Q','today','balred_0.90']
+    lbl = ['original mismatch','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction quantile line capacities']
+    cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
+    # linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
+    # lbl = ['original mismatch','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    for year in years:
+        mismatch = []
+        ISO = []
+        filename = 'mismatch_distribution_year_{0}_step_{1}_AT.png'.format(year,step)
+        # if os.path.exists(figpath+filename): continue
+        for lc in linecap:
+            fname = 'logfit_gamma_year_%u' % year
+            if ('balred' in lc): fname += '_'+lc
+            else: fname += '_linecap_'+lc
+            fname += '_step_%u' % step
+            if ('balred' in lc):
+                fname += '_capped_investment'
+            fname += '_nodes.npz'
+            N = Nodes(load_filename=fname)
+            mism = [(n.curtailment - n.balancing)/(n.mean) for n in N]
+            mismatch.append(mism)
+            ISO = ['{}'.format(n.label) for n in N]
+        i = 0
+        for iso in ISO:
+            fig = plt.figure(1); plt.clf()
+            ax = fig.add_subplot(111)
+            ax.grid(True)
+            j = 0
+            for lc in linecap:
+                # if j>0: continue
+                xx = mismatch[j][i][:]
+                ax.hist(xx,color=cl[j],bins=250,histtype='step',align='mid')
+                ax.plot([],[],color=cl[j],label=lbl[j])
+                j += 1
+            leg = legend(title=ISO2name(ISO=iso)+', reference year {}'.format(year))
+            ltext  = leg.get_texts();
+            setp(ltext, fontsize='small')    # the legend text fontsize
+            ax.axis(xmin=-2.0,xmax=4.0,ymin=0,ymax=1400)
+            ax.set_xlabel('Mismatch between load and generation/av.h.l.')
+            ax.set_ylabel('Incidence/h')
+            filename = 'mismatch_distribution_year_{0}_step_{1}_{2}.png'.format(year,step,iso)
+            gcf().set_size_inches([9*1.5,3*1.75]) 
+            save_figure(filename)
+            i += 1
     return
     
 

@@ -5,9 +5,12 @@
 *testsolver
 *~
 run*
+BasepathS.py
+SingleCountryS.py
 Documentation/docu.aux
 Documentation/docu.log
 Documentation/111118*
 data
 figures
 results
+collected_figures
