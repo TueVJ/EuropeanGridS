@@ -1346,10 +1346,13 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
 def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     fig=plt.figure(1); plt.clf()
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
-    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ax = fig.add_subplot(111,projection='3d')
-    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
-    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    linecap = ['0.40Q','today','balred_0.90']
+    lbl = ['no transmission','line capacities as of today',r'90$\,$% bal. reduction quantile line capacities']
+    cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
+    # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    # linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
+    # lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1368,9 +1371,10 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
             gamma_vs_year=np.array(get_gamma_vs_year(step=st))[skip:]
             bvsg[i,:] = data[skip:,1]-(1.-gamma_vs_year)
             i += 1
-        ax.plot_surface(X,Y,bvsg.T,alpha=0.3,rstride=5,cstride=1,color=cl[4-ii],label=lbl[ii])
-        ax.plot([],[],color=cl[4-ii],label=lbl[ii],lw=8,alpha=0.3) # only for legend
+        ax.plot_surface(X,Y,bvsg.T,alpha=0.4,rstride=5,cstride=1,color=cl[ii],label=lbl[ii])
+        ax.plot([],[],color=cl[ii],label=lbl[ii],lw=8,alpha=0.4) # only for legend
         ii+=1
+    ax.set_xticks(scenarios)
     ax.set_xticklabels(mixes)
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Reference year')
@@ -1379,7 +1383,6 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
-    plt.draw()
     plt.show()
     return
         
@@ -1595,15 +1598,15 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
 
 def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,yearmin=2010,yearmax=2050):
     years = np.arange(yearmin,yearmax+1,5)
-    linecap = ['0.40Q','today','balred_0.90']
-    lbl = ['original mismatch','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction quantile line capacities']
-    cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
+    # linecap = ['0.40Q','today','balred_0.90']
+    # lbl = ['original mismatch','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction quantile line capacities']
+    # cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
     bns=np.arange(-2.,4.01,0.01) # the bins for the histograms
     gamma_vs_year=array(get_gamma_vs_year(step=step)) # average gamma
 
-    # linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
-    # lbl = ['original mismatch','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
-    # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
+    lbl = ['original mismatch','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
 
     for year in years:
         mismatch = []
