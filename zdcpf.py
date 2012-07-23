@@ -415,7 +415,7 @@ def show_hist(link,filename='results/copper_flows.npy',e=1,b=500):
     show()
 
 
-def find_balancing_reduction_quantiles(reduction=[0.50,0.90],eps=1.e-4,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None,stepname=2):
+def find_balancing_reduction_quantiles(reduction=[0.70,0.90],eps=1.e-4,guess=[0.885,0.98],stepsize=0.01,copper=0.24,notrans=0.19,file_notrans='dummy_nodes.npz',gamma=1.,alpha=None,save_filename=None,stepname=2):
 
     '''Loop over different quantile line capacities until the quantile
     is found that leads to a reduction of balancing by <reduction>

@@ -69,7 +69,7 @@ def generate_basepath_gamma_alpha(txtfile='../DataAndPredictionsGammaAlpha/gamma
     data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
     
     p_year = array(data[0][2:25])
-    # print p_year
+    print p_year
     # print data[0][23:]
     # print data[1][23:]
     year = arange(amin(p_year),amax(p_year)+1,1)
@@ -185,7 +185,7 @@ def generate_basepath_gamma_optimal_alpha(txtfile='../DataAndPredictionsGammaAlp
     data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
     
     p_year = array(data[0][2:-4])
-    # print p_year
+    #print p_year
     year = arange(amin(p_year),amax(p_year)+1,1)
     
     if plot_on==True:
@@ -457,7 +457,7 @@ def plot_logistic_fit(year,gamma_fit,p_year,p_gamma,p_historical=None,txtlabel=N
         figname += 'separate'
     else:
         figname += combifit
-    figname += ('_step_%u_' % step) + txtlabel + '.png'
+    figname += ('_step_%u_' % step) + txtlabel + '.pdf'
     save_figure(figname)
 
 
@@ -496,7 +496,7 @@ def plot_optimal_alpha_logistic_fit(year,f_gamma,f_alpha,p_year,p_gamma,p_alpha,
 
     #tight_layout(pad=.2)
     figname = 'plot_optimal_alpha_logistic_fit'
-    figname += ('_step_%u_' % step) + txtlabel + '.png'
+    figname += ('_step_%u_' % step) + txtlabel + '.pdf'
     save_figure(figname)
 
 
@@ -539,10 +539,10 @@ def sort_to_node_order(arr):
     return sortarr
 
 
-# def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+def save_figure(figname='TestFigure.pdf', fignumber=gcf().number, path='./figures/', dpi=300):
 	
-#     figure(fignumber)
-#     savefig(path + figname, dpi=dpi)
-#     print 'Saved figure:',path + figname
-#     sys.stdout.flush()
+    figure(fignumber)
+    savefig(path + figname, dpi=dpi)
+    print 'Saved figure:',path + figname
+    sys.stdout.flush()
 
