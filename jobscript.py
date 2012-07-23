@@ -1216,7 +1216,8 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
                 ax.bar(pp_x-0.35,pp_y,color=cl[0],label=pp_label[0])
             for j in range(len(deficit)):
                 #print deficit[j],node_import[j]
-                pp_y[j]=min(deficit[j],node_import[j]) # import that covers "excess deficit"
+                # pp_y[j]=min(deficit[j],node_import[j]) # import that covers "excess deficit"
+                pp_y[j]=node_import[j] # all import
                 #print pp_y[j]
             ax.bar(pp_x-0.35,pp_y,color=cl[i+1],label=pp_label[i+1])
             i += 1
