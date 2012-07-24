@@ -76,7 +76,7 @@ def gamma_homogenous(linecap='copper',start=None,stop=None,alpha=None,gpercent=N
         np.save('./results/'+name+'_flows',F)
 
 
-def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogenous_gamma_balred_quantiles',notrans_file='Bvsg_homogenous_gamma_linecap_0.40Q',copper_file='Bvsg_homogenous_gamma_linecap_copper',start=None,stop=None):
+def gamma_homogenous_balred(red=[0.70,0.90],path='./results/',guessfile='homogenous_gamma_balred_quantiles',notrans_file='Bvsg_homogenous_gamma_linecap_0.40Q',copper_file='Bvsg_homogenous_gamma_linecap_copper',start=None,stop=None):
     if start != None:
         skip = start
     else:
@@ -172,7 +172,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def gamma_logfit_balred(red=[0.70,0.90],path='./results/',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None):
+def gamma_logfit_balred(red=[0.70,0.90],path='./results/',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None,eps=1.e-4):
         
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
@@ -201,9 +201,9 @@ def gamma_logfit_balred(red=[0.70,0.90],path='./results/',notrans_file='Bvsg_log
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
         guess=[0.,0.]
-        if (2014 <= year and year <= 2017): guess=[0.80,0.88]
-        if (last_quant[0] !=0): guess=last_quant
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,stepname=step)
+        if (2017 <= year and year <= 2019): guess=[0.80,0.88]
+        if (last_quant[0] !=0.): guess=last_quant
+        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=eps,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,stepname=step)
         quantiles.append(np.array(last_quant).copy())
         print quantiles
     qsave_file='logistic_gamma'
