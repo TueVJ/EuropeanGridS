@@ -184,28 +184,46 @@ def gamma_logfit_balred(red=[0.70,0.90],path='./results/',notrans_file='Bvsg_log
     else:
         skip_end=60+1
     years= arange(1990+skip,1990+skip_end,1)
-    quantiles = []
+    quantiles = np.zeros((len(years),len(red)))
     cfile = copper_file + ('_step_%u.npy' % step)
     balmins=np.load(path+cfile)[:,1]
     nfile = notrans_file + ('_step_%u.npy' % step)
     balmaxes = np.load(path+nfile)[:,1]
-    last_quant = np.zeros(2)
     for year in years:
-        gammas=array(get_basepath_gamma(year,step=step))
         alphas=array(get_basepath_alpha(year,step=step))
-        print "Now calculating for year = ",year
-        save_filename = []
-        for i in range(len(red)):
-            save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
-        f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
+        gammas=array(get_basepath_gamma(year,step=step))
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
-        guess=[0.,0.]
-        if (2017 <= year and year <= 2019): guess=[0.80,0.88]
-        if (last_quant[0] !=0.): guess=last_quant
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=eps,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,stepname=step)
-        quantiles.append(np.array(last_quant).copy())
-        print quantiles
+        print '% in gamma_logfit_balred:'
+        # print 'alphas: ', alphas
+        # print 'gammas: ', gammas
+        print 'balmax: ', balmax
+        print 'balmin: ', balmin
+        for (i,rd) in zip(range(len(red)),red):
+            print "Now calculating for year = ",year,', reduction = ',rd,', step = ',step
+            save_filename = 'logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)
+            print save_filename
+            file_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
+            # check if there is a significant reduction possible at all
+            if (2.*(balmax-balmin)/(balmax+balmin)<eps):
+                # just link to the notrans files
+                link_flows=save_filename+'_flows.npy'
+                link_nodes=save_filename+'_nodes.npz'
+                target_flows=file_notrans[:-10]+'_flows.npy'
+                os.symlink(file_notrans,'./results/'+link_nodes)
+                os.symlink(target_flows,'./results/'+link_flows)
+                quantiles[year-1990,i] = 0.0
+                continue
+            # here comes the minimization
+            a = 0.88 # the lower boundary for quantile values
+            if (rd <= 0.7): a = 0.80
+            b = 0.9999 # the upper boundary
+            copper_flow_file=('./results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
+            baltarget=balmin+(1.-rd)*(balmax-balmin)
+            print 'baltarget: ', baltarget
+            quant = optimize.brentq(get_total_balancing,a,b,args=(alphas,gammas,copper_flow_file,save_filename,baltarget),xtol=0.01,rtol=eps)
+            quantiles[year-1990,i] = quant
+            print quantiles
     qsave_file='logistic_gamma'
     if (start != None):
         qsave_file += '_from_%u' % min(years)
@@ -214,6 +232,29 @@ def gamma_logfit_balred(red=[0.70,0.90],path='./results/',notrans_file='Bvsg_log
     qsave_file += '_balred_quantiles_refined'
     qsave_file += '_step_%u' % step
     np.save('./results/'+qsave_file,quantiles)
+
+
+def get_total_balancing(quant,alpha,gamma,copper_flow_file,save_filename,baltarget):
+    N=Nodes()
+    N.set_alphas(alpha)
+    N.set_gammas(gamma)
+    h=get_quant(quant,filename=copper_flow_file)
+    F=sdcpf(N,h0=h)
+
+    N.save_nodes_small(save_filename+'_nodes')
+    np.save('./results/'+save_filename+'_flows',F)
+
+    a=0.; b=0.
+    for j in N:
+        a+=sum(j.balancing)
+        b+=j.mean*j.nhours
+    baltot=a/b
+    del N
+    print '% in get_total_balancing'
+    print 'baltot: ', baltot
+    print 'baltarget: ',baltarget
+    
+    return (baltot - baltarget)
 
 
 def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
