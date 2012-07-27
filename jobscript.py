@@ -76,7 +76,7 @@ def gamma_homogenous(linecap='copper',start=None,stop=None,alpha=None,gpercent=N
         np.save('./results/'+name+'_flows',F)
 
 
-def gamma_homogenous_balred(red=[0.50,0.90],path='./results/',guessfile='homogenous_gamma_balred_quantiles',notrans_file='Bvsg_homogenous_gamma_linecap_0.40Q',copper_file='Bvsg_homogenous_gamma_linecap_copper',start=None,stop=None):
+def gamma_homogenous_balred(red=[0.70,0.90],path='./results/',guessfile='homogenous_gamma_balred_quantiles',notrans_file='Bvsg_homogenous_gamma_linecap_0.40Q',copper_file='Bvsg_homogenous_gamma_linecap_copper',start=None,stop=None):
     if start != None:
         skip = start
     else:
@@ -172,7 +172,7 @@ def gamma_logfit(linecap='copper',step=2,start=None,stop=None):
         del N
 
 
-def gamma_logfit_balred(red=[0.50,0.90],path='./results/',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None):
+def gamma_logfit_balred(red=[0.70,0.90],path='./results/',notrans_file='Bvsg_logfit_gamma_linecap_0.40Q',copper_file='Bvsg_logfit_gamma_linecap_copper',step=2,start=None,stop=None,eps=1.e-4):
         
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
@@ -184,28 +184,46 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',notrans_file='Bvsg_log
     else:
         skip_end=60+1
     years= arange(1990+skip,1990+skip_end,1)
-    quantiles = []
+    quantiles = np.zeros((len(years),len(red)))
     cfile = copper_file + ('_step_%u.npy' % step)
     balmins=np.load(path+cfile)[:,1]
     nfile = notrans_file + ('_step_%u.npy' % step)
     balmaxes = np.load(path+nfile)[:,1]
-    last_quant = np.zeros(2)
     for year in years:
-        gammas=array(get_basepath_gamma(year,step=step))
         alphas=array(get_basepath_alpha(year,step=step))
-        print "Now calculating for year = ",year
-        save_filename = []
-        for i in range(len(red)):
-            save_filename.append(('logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)))
-        f_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
+        gammas=array(get_basepath_gamma(year,step=step))
         balmax=balmaxes[year-1990]
         balmin=balmins[year-1990]
-        guess=[0.,0.]
-        if (2014 <= year and year <= 2017): guess=[0.80,0.88]
-        if (last_quant[0] !=0): guess=last_quant
-        last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gammas,alpha=alphas,save_filename=save_filename,stepname=step)
-        quantiles.append(np.array(last_quant).copy())
-        print quantiles
+        print '% in gamma_logfit_balred:'
+        # print 'alphas: ', alphas
+        # print 'gammas: ', gammas
+        print 'balmax: ', balmax
+        print 'balmin: ', balmin
+        for (i,rd) in zip(range(len(red)),red):
+            print "Now calculating for year = ",year,', reduction = ',rd,', step = ',step
+            save_filename = 'logfit_gamma_year_%u_balred_%.2f_step_%u' % (year,red[i],step)
+            print save_filename
+            file_notrans='logfit_gamma_year_%u_linecap_0.40Q_step_%u_nodes.npz' % (year,step)
+            # check if there is a significant reduction possible at all
+            if (2.*(balmax-balmin)/(balmax+balmin)<eps):
+                # just link to the notrans files
+                link_flows=save_filename+'_flows.npy'
+                link_nodes=save_filename+'_nodes.npz'
+                target_flows=file_notrans[:-10]+'_flows.npy'
+                os.symlink(file_notrans,'./results/'+link_nodes)
+                os.symlink(target_flows,'./results/'+link_flows)
+                quantiles[year-1990,i] = 0.0
+                continue
+            # here comes the minimization
+            a = 0.80 # the lower boundary for quantile values
+            if (rd <= 0.7): a = 0.75
+            b = 0.9999 # the upper boundary
+            copper_flow_file=('./results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
+            baltarget=balmin+(1.-rd)*(balmax-balmin)
+            print 'baltarget: ', baltarget
+            quant = optimize.brentq(get_total_balancing,a,b,args=(alphas,gammas,copper_flow_file,save_filename,baltarget),xtol=0.001,rtol=eps)
+            quantiles[year-1990,i] = quant
+            print quantiles
     qsave_file='logistic_gamma'
     if (start != None):
         qsave_file += '_from_%u' % min(years)
@@ -216,9 +234,32 @@ def gamma_logfit_balred(red=[0.50,0.90],path='./results/',notrans_file='Bvsg_log
     np.save('./results/'+qsave_file,quantiles)
 
 
+def get_total_balancing(quant,alpha,gamma,copper_flow_file,save_filename,baltarget):
+    N=Nodes()
+    N.set_alphas(alpha)
+    N.set_gammas(gamma)
+    h=get_quant(quant,filename=copper_flow_file)
+    F=sdcpf(N,h0=h)
+
+    N.save_nodes_small(save_filename+'_nodes')
+    np.save('./results/'+save_filename+'_flows',F)
+
+    a=0.; b=0.
+    for j in N:
+        a+=sum(j.balancing)
+        b+=j.mean*j.nhours
+    baltot=a/b
+    del N
+    print '% in get_total_balancing'
+    print 'baltot: ', baltot
+    print 'baltarget: ',baltarget
+    
+    return (baltot - baltarget)
+
+
 def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
         
-    red=[0.50,0.90]
+    red=[0.70,0.90]
     #generate_basepath_gamma_alpha(step=step)
     if start != None:
         skip = start
@@ -253,7 +294,7 @@ def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
                 os.symlink(target_flows,path+link_flows)
                 continue
             # if overcapacities present: cap them and calculate with capped caps
-            print "Now calculating for year = ",year,", reduction = ",red[i]
+            print "Now calculating for year = ",year,", reduction = ",red[i],', step = ',step
             quantiles[year-1990,i]=quant_end[i]
             N=Nodes()                
             gammas=array(get_basepath_gamma(year,step=step))
@@ -804,7 +845,7 @@ def get_deficit_quantiles_vs_year(path='./results/',datpath='./data/',step=2,lin
 # cl = ['#8F07BC','#4007BC','#F48709','#0C9D4C','#9D0C2B'] # lynnn (CL) *
 # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL) *
 
-def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",picname='balancing_vs_homogenous_gamma.png'):
+def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.70','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",picname='balancing_vs_homogenous_gamma.pdf'):
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
@@ -833,7 +874,7 @@ def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps
     save_figure(picname)
 
 
-def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.50','balred_0.90','copper'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_homogenous_gamma.png'):
+def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.70','balred_0.90','copper'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_homogenous_gamma.pdf'):
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
@@ -869,7 +910,7 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
     save_figure(picname)
     
 
-def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction']):
+def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction']):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -891,11 +932,11 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    picname = 'linecaps_vs_homogenous_gamma' + '.png'
+    picname = 'linecaps_vs_homogenous_gamma' + '.pdf'
     save_figure(picname)
 
 
-def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -922,11 +963,11 @@ def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_q
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    picname = 'investment_vs_homogenous_gamma' + '.png'
+    picname = 'investment_vs_homogenous_gamma' + '.pdf'
     save_figure(picname)
 
 
-def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='balancing_vs_year',step=2,capped_inv=True):
+def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.70','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='balancing_vs_year',step=2,capped_inv=True):
 
     fig=figure(1); clf()
     #calculate average gamma as weighted mean of all countries for all years
@@ -986,8 +1027,8 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     fig.suptitle(title_,fontsize=14,y=0.96)
 
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left',title=title_leg);
     ltext  = leg.get_texts();
@@ -999,11 +1040,11 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     picname = picname +'_'+ prefix + ('_step_%u' %step)
     if capped_inv:
         picname += '_capped_investment'
-    picname += '.png'
+    picname += '.pdf'
     save_figure(picname)
 
 
-def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.50','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_year',step=2,capped_inv=True):
+def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40Q','today','balred_0.70','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_year',step=2,capped_inv=True):
     fig=figure(1); clf()
     #calculate average gamma as weighted mean of all countries for all years
     gamma_vs_year= array(get_gamma_vs_year(step=step))
@@ -1046,8 +1087,8 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     fig.suptitle(title_,fontsize=14,y=0.96)
 
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left',title=title_leg);
     axis(xmin=1990,xmax=2050,ymin=-0.05,ymax=5.)
@@ -1062,11 +1103,11 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
 
     picname = picname +'_'+ prefix + ('_step_%u' %step)
     if capped_inv: picname += '_capped_investment'
-    picname += '.png'
+    picname += '.pdf'
     save_figure(picname)
 
 
-def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],capped_inv=True):
+def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],capped_inv=True):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step,capped_inv=capped_inv)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -1078,8 +1119,8 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
         pp.extend(pp_)
     pp_label=label
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=10.)
     xlabel('year')
@@ -1095,11 +1136,11 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
 
     picname = 'linecaps_vs_year' + ('_step_%u' %step)
     if capped_inv: picname += '_capped_investment'
-    picname += '.png'
+    picname += '.pdf'
     save_figure(picname)
 
 
-def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],capped_inv=True):
+def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],capped_inv=True):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step,capped_inv=capped_inv)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -1116,8 +1157,8 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
         pp.extend(pp_)
     pp_label=label
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=2.)
     xlabel('year')
@@ -1133,7 +1174,7 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
 
     picname = 'investment_vs_year' + ('_step_%u' %step)
     if capped_inv: picname += '_capped_investment'
-    picname += '.png'
+    picname += '.pdf'
     save_figure(picname)
 
 
@@ -1142,7 +1183,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
 
-    linecap = ['copper','balred_0.90','balred_0.50','today']
+    linecap = ['copper','balred_0.90','balred_0.70','today']
     lc = []
     for lica in linecap:
         if ('balred' in lica): lc.append(lica)
@@ -1153,7 +1194,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
         i=0
-        pp_label = ['overproduction','export with copper plate transmission','export with 90% balancing reduction transmission','export with 50% balancing reduction transmission','export with transmission lines as of today']
+        pp_label = ['overproduction','export with copper plate transmission',r'export with 90$\,$% balancing reduction transmission',r'export with 70$\,$% balancing reduction transmission','export with transmission lines as of today']
         for lica in lc:
             datfile = 'curtailment_and_excess_%s_step_%u_%s.npy' % (lica,step,iso)
             data = np.load(path+datfile)
@@ -1168,8 +1209,8 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
             ax.bar(pp_x-0.35,pp_y,color=cl[i+1],label=pp_label[i+1])
             i += 1
 
-        if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-        if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
         leg=ax.legend(loc='upper left',title=title_leg)
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1182,7 +1223,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         tlte += ISO2name(ISO=iso)
         fig.suptitle(tlte,fontsize=14,y=0.96)
 
-        picname = 'excess_and_export_vs_year'+ ('_step_%u' %step) + ('_%s.png' % iso)
+        picname = 'excess_and_export_vs_year'+ ('_step_%u' %step) + ('_%s.pdf' % iso)
         save_figure(picname)
 
 
@@ -1191,7 +1232,7 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
 
-    linecap = ['copper','balred_0.90','balred_0.50','today']
+    linecap = ['copper','balred_0.90','balred_0.70','today']
     lc = []
     for lica in linecap:
         if ('balred' in lica): lc.append(lica)
@@ -1202,7 +1243,7 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
         i=0
-        pp_label = ['deficit','import with copper plate transmission','import with 90% balancing reduction transmission','import with 50% balancing reduction transmission','import with transmission lines as of today']
+        pp_label = ['deficit','import with copper plate transmission',r'import with 90$\,$% balancing reduction transmission',r'import with 70$\,$% balancing reduction transmission','import with transmission lines as of today']
         for lica in lc:
             datfile = 'import_and_deficit_%s_step_%u_%s.npy' % (lica,step,iso)
             data = np.load(path+datfile)
@@ -1222,8 +1263,8 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
             ax.bar(pp_x-0.35,pp_y,color=cl[i+1],label=pp_label[i+1])
             i += 1
 
-        if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-        if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
         leg=ax.legend(loc='upper left',title=title_leg)
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1236,7 +1277,7 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         tlte += ISO2name(ISO=iso)
         fig.suptitle(tlte,fontsize=14,y=0.96)
 
-        picname = 'deficit_and_import_vs_year'+ ('_step_%u' %step) + ('_%s.png' % iso)
+        picname = 'deficit_and_import_vs_year'+ ('_step_%u' %step) + ('_%s.pdf' % iso)
         save_figure(picname)
 
 
@@ -1247,8 +1288,8 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
            'ES', 'LU', 'SK']
 
     years=arange(1990,2050+1,1)
-    linecap=['linecap_0.40Q','linecap_today','balred_0.50','balred_0.90','linecap_copper']
-    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    linecap=['linecap_0.40Q','linecap_today','balred_0.70','balred_0.90','linecap_copper']
+    lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
 
     nhours = 70128
     for iso in ISO:
@@ -1270,8 +1311,8 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
                 return
             ax.bar(pp_x-0.35,quantile,color=cl[i],label=lbl[i])
             i += 1
-        if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-        if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
         leg=ax.legend(loc='upper left',title=title_leg)
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1282,7 +1323,7 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
         title_ = ('%u%% %s quantiles for ' % (100.*quant,qtype))+ ISO2name(ISO=iso)
         fig.suptitle(title_,fontsize=14,y=0.96)
 
-        picname = ('%u_percent_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ ('_%s.png' % iso)
+        picname = ('%u_percent_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ ('_%s.pdf' % iso)
         save_figure(picname)
 
 
@@ -1294,8 +1335,8 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
 
     years=arange(1990,2050+1,1)
 
-    linecap=['linecap_0.40Q','linecap_today','balred_0.50','balred_0.90','linecap_copper']
-    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    linecap=['linecap_0.40Q','linecap_today','balred_0.70','balred_0.90','linecap_copper']
+    lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
 
     N=Nodes()
     weight=[]
@@ -1328,8 +1369,8 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
         quantile /= sum(weight)
         ax.bar(pp_x-0.35,quantile,color=cl[i],label=lbl[i])
         i += 1
-    if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-    if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+    if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+    if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
     leg=ax.legend(loc='upper left',title=title_leg)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1340,7 +1381,7 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
     title_ = ('%u%% %s quantiles for Europe' % (100.*quant,qtype))
     fig.suptitle(title_,fontsize=14,y=0.96)
 
-    picname = ('%u_percent_cumulative_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ '.png'
+    picname = ('%u_percent_cumulative_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ '.pdf'
     save_figure(picname)
         
 
@@ -1352,8 +1393,8 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     lbl = ['no transmission','line capacities as of today',r'90$\,$% bal. reduction quantile line capacities']
     cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
     # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
-    # linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
-    # lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    # linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    # lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1393,8 +1434,8 @@ def plot_flows_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ax = fig.add_subplot(111,projection='3d')
-    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
-    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1433,8 +1474,8 @@ def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_qua
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     cl = ['#E97F02','#F8CA00'] # by sugar (CL)
     ax = fig.add_subplot(111,projection='3d')
-    linecap = ['balred_0.50','balred_0.90']
-    lbl=[r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities']
+    linecap = ['balred_0.70','balred_0.90']
+    lbl=[r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1473,8 +1514,8 @@ def plot_investment_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_q
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     cl = ['#E97F02','#F8CA00'] # by sugar (CL)
     ax = fig.add_subplot(111,projection='3d')
-    linecap = ['balred_0.50','balred_0.90']
-    lbl=[r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities']
+    linecap = ['balred_0.70','balred_0.90']
+    lbl=[r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1513,8 +1554,8 @@ def plot_balancing_vs_scenario(path='./results/',year=2035,step=2,capped_inv=Tru
     #fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ax = fig.add_subplot(111)
-    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
-    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1551,8 +1592,8 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
     #fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ax = fig.add_subplot(111)
-    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
-    lbl=['no transmission','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1605,22 +1646,22 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
     bns=np.arange(-2.,4.01,0.01) # the bins for the histograms
     gamma_vs_year=array(get_gamma_vs_year(step=step)) # average gamma
 
-    linecap = ['0.40Q','today','balred_0.50','balred_0.90','copper']
-    lbl = ['original mismatch','line capacities as of today',r'50$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    lbl = ['original mismatch','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
 
     for year in years:
         mismatch = []
         ISO = []
-        filename = 'mismatch_distribution_year_{0}_step_{1}_AT.png'.format(year,step)
+        filename = 'mismatch_distribution_year_{0}_step_{1}_AT.pdf'.format(year,step)
         # if os.path.exists(figpath+filename): continue
         for lc in linecap:
             fname = 'logfit_gamma_year_%u' % year
             if ('balred' in lc): fname += '_'+lc
             else: fname += '_linecap_'+lc
             fname += '_step_%u' % step
-            if ('balred' in lc):
-                fname += '_capped_investment'
+            # if ('balred' in lc):
+            #     fname += '_capped_investment'
             fname += '_nodes.npz'
             N = Nodes(load_filename=fname)
             mism = [(n.curtailment - n.balancing)/(n.mean) for n in N]
@@ -1655,7 +1696,7 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
     return
     
 
-def save_figure(figname='TestFigure.png', fignumber=gcf().number, path='./figures/', dpi=300):
+def save_figure(figname='TestFigure.pdf', fignumber=gcf().number, path='./figures/', dpi=300):
 	
     figure(fignumber)
     savefig(path + figname, dpi=dpi)
