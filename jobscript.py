@@ -215,13 +215,13 @@ def gamma_logfit_balred(red=[0.70,0.90],path='./results/',notrans_file='Bvsg_log
                 quantiles[year-1990,i] = 0.0
                 continue
             # here comes the minimization
-            a = 0.88 # the lower boundary for quantile values
-            if (rd <= 0.7): a = 0.80
+            a = 0.80 # the lower boundary for quantile values
+            if (rd <= 0.7): a = 0.75
             b = 0.9999 # the upper boundary
             copper_flow_file=('./results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
             baltarget=balmin+(1.-rd)*(balmax-balmin)
             print 'baltarget: ', baltarget
-            quant = optimize.brentq(get_total_balancing,a,b,args=(alphas,gammas,copper_flow_file,save_filename,baltarget),xtol=0.01,rtol=eps)
+            quant = optimize.brentq(get_total_balancing,a,b,args=(alphas,gammas,copper_flow_file,save_filename,baltarget),xtol=0.001,rtol=eps)
             quantiles[year-1990,i] = quant
             print quantiles
     qsave_file='logistic_gamma'
@@ -294,7 +294,7 @@ def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
                 os.symlink(target_flows,path+link_flows)
                 continue
             # if overcapacities present: cap them and calculate with capped caps
-            print "Now calculating for year = ",year,", reduction = ",red[i]
+            print "Now calculating for year = ",year,", reduction = ",red[i],', step = ',step
             quantiles[year-1990,i]=quant_end[i]
             N=Nodes()                
             gammas=array(get_basepath_gamma(year,step=step))
@@ -910,7 +910,7 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
     save_figure(picname)
     
 
-def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction']):
+def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction']):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -936,7 +936,7 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
     save_figure(picname)
 
 
-def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -1027,8 +1027,8 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     fig.suptitle(title_,fontsize=14,y=0.96)
 
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left',title=title_leg);
     ltext  = leg.get_texts();
@@ -1087,8 +1087,8 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     fig.suptitle(title_,fontsize=14,y=0.96)
 
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left',title=title_leg);
     axis(xmin=1990,xmax=2050,ymin=-0.05,ymax=5.)
@@ -1107,7 +1107,7 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     save_figure(picname)
 
 
-def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],capped_inv=True):
+def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],capped_inv=True):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step,capped_inv=capped_inv)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -1119,8 +1119,8 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
         pp.extend(pp_)
     pp_label=label
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=10.)
     xlabel('year')
@@ -1140,7 +1140,7 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     save_figure(picname)
 
 
-def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 50 % balancing reduction','needed for 90 % balancing reduction'],capped_inv=True):
+def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],capped_inv=True):
     linecaps=get_linecaps_vs_year(path=path,prefix=prefix,step=step,capped_inv=capped_inv)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -1157,8 +1157,8 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
         pp.extend(pp_)
     pp_label=label
     title_leg=''
-    if (step == 2): title_leg=r"2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $"
-    if (step == 3): title_leg=r"2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 2): title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"
+    if (step == 3): title_leg=r"2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $"
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=2.)
     xlabel('year')
@@ -1194,7 +1194,7 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
         i=0
-        pp_label = ['overproduction','export with copper plate transmission','export with 90% balancing reduction transmission','export with 50% balancing reduction transmission','export with transmission lines as of today']
+        pp_label = ['overproduction','export with copper plate transmission',r'export with 90$\,$% balancing reduction transmission',r'export with 70$\,$% balancing reduction transmission','export with transmission lines as of today']
         for lica in lc:
             datfile = 'curtailment_and_excess_%s_step_%u_%s.npy' % (lica,step,iso)
             data = np.load(path+datfile)
@@ -1209,8 +1209,8 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
             ax.bar(pp_x-0.35,pp_y,color=cl[i+1],label=pp_label[i+1])
             i += 1
 
-        if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-        if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
         leg=ax.legend(loc='upper left',title=title_leg)
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1243,7 +1243,7 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         fig=figure(1); clf()
         ax=fig.add_subplot(1,1,1)
         i=0
-        pp_label = ['deficit','import with copper plate transmission','import with 90% balancing reduction transmission','import with 50% balancing reduction transmission','import with transmission lines as of today']
+        pp_label = ['deficit','import with copper plate transmission',r'import with 90$\,$% balancing reduction transmission',r'import with 70$\,$% balancing reduction transmission','import with transmission lines as of today']
         for lica in lc:
             datfile = 'import_and_deficit_%s_step_%u_%s.npy' % (lica,step,iso)
             data = np.load(path+datfile)
@@ -1263,8 +1263,8 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
             ax.bar(pp_x-0.35,pp_y,color=cl[i+1],label=pp_label[i+1])
             i += 1
 
-        if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-        if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
         leg=ax.legend(loc='upper left',title=title_leg)
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1311,8 +1311,8 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
                 return
             ax.bar(pp_x-0.35,quantile,color=cl[i],label=lbl[i])
             i += 1
-        if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-        if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+        if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
         leg=ax.legend(loc='upper left',title=title_leg)
         ltext  = leg.get_texts();
         setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1369,8 +1369,8 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
         quantile /= sum(weight)
         ax.bar(pp_x-0.35,quantile,color=cl[i],label=lbl[i])
         i += 1
-    if (step == 2): title_leg = r'2050 target: 100% VRES, $\alpha_{\rm W}=0.7 $'
-    if (step == 3): title_leg = r'2050 target:  76% VRES, $\alpha_{\rm W}=0.7 $'
+    if (step == 2): title_leg = r'2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $'
+    if (step == 3): title_leg = r'2050 target:  76$\,$% VRES, $\alpha_{\rm W}=0.7 $'
     leg=ax.legend(loc='upper left',title=title_leg)
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1660,8 +1660,8 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
             if ('balred' in lc): fname += '_'+lc
             else: fname += '_linecap_'+lc
             fname += '_step_%u' % step
-            if ('balred' in lc):
-                fname += '_capped_investment'
+            # if ('balred' in lc):
+            #     fname += '_capped_investment'
             fname += '_nodes.npz'
             N = Nodes(load_filename=fname)
             mism = [(n.curtailment - n.balancing)/(n.mean) for n in N]
