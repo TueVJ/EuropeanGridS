@@ -372,6 +372,110 @@ def get_flows_vs_gamma(prefix='homogenous_gamma',path='./results/',linecap='copp
     return Fvsg
 
 
+def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined'):
+    name = prefix + '.npy'
+    quantiles=transpose(np.load(path+name))
+    #print shape(quantiles)
+    N=Nodes()
+    km,kv,h0,lf=AtoKh(N) # h0: linecap today
+    del N
+    linecaps=np.zeros((2,100+1))
+    for i in range(2):
+         for j in range(100+1):
+            if (quantiles[i,j] == 0):
+                linecaps[i,j]=0
+            else:
+                copper_file = ('results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
+                h=get_quant(quantiles[i,j],filename=copper_file)
+                inv=0.
+                for l in range(len(h)):
+                    inv += get_positive(h[l]-h0[l])
+                linecaps[i,j]=inv
+       # for j in range(100+1):
+       #      if (quantiles[i,j] == 0):
+       #          h=h0
+       #      else:
+       #          h=get_quant(quantiles[i,j])
+       #      inv=0.
+       #      for l in range(len(h)):
+       #          inv += h[l]
+       #      linecaps[i,j]=inv
+    return linecaps
+
+
+def get_gamma_vs_year(path='./results/',prefix='logfit_gamma',step=2):
+    filename = prefix+'_vs_year_step_%u.npy' % step
+    if os.path.exists(path+filename):
+        gamma_vs_year = np.load(path+filename)
+        return gamma_vs_year
+    N = Nodes()
+    weight = []
+    for i in N:
+        weight.append(i.mean)
+    del N
+    gamma_vs_year = []
+    years=arange(1990,2050+1,1)
+    for year in years:
+        gamma=array(get_basepath_gamma(year,step=step))
+        counter = 0.
+        denom = 0.
+        for i in range(len(weight)):
+            counter += weight[i]*gamma[i]
+            denom += weight[i]
+        gamma_vs_year.append(counter/denom)
+        np.save(path+filename,gamma_vs_year)
+    return gamma_vs_year
+
+
+def get_alpha_vs_year(path='./results/',prefix='logfit_gamma',step=2):
+    filename = prefix+'_alpha_vs_year_step_%u.npy' % step
+    if os.path.exists(path+filename):
+        alpha_vs_year = np.load(path+filename)
+        return alpha_vs_year
+    N = Nodes()
+    weight = []
+    for i in N:
+        weight.append(i.mean)
+    del N
+    alpha_vs_year = []
+    years=arange(1990,2050+1,1)
+    for year in years:
+        alpha=array(get_basepath_alpha(year,step=step))
+        counter = 0.
+        denom = 0.
+        for i in range(len(weight)):
+            counter += weight[i]*alpha[i]
+            denom += weight[i]
+        alpha_vs_year.append(counter/denom)
+        np.save(path+filename,alpha_vs_year)
+    return alpha_vs_year
+
+
+def get_optimal_alphas(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',step=2):
+    data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
+
+    ISO = ['AT', 'BE', 'BG', 'BA', 'CZ', 'CH', 'DE', 'DK', 'ES', 
+    'FR', 'FI', 'GB', 'GR', 'HU', 'IT', 'IE', 'HR', 'LU', 'NO', 
+    'NL', 'PT', 'PL', 'RO', 'SE', 'SK', 'SI', 'RS']
+
+    alpha = []    
+    for i in arange(1,data.shape[0]-1,2): # loop over countries
+        wind = array(data[i][2:-4])
+        solar = array(data[i+1][2:-4])
+        if (step == 3):
+            wind[-1] = data[i][-4] # take alternative values for 2050 in step 3
+            solar[-1] = data[i+1][-4]
+        elif (step == 4):
+            wind[-1] = data[i][-3] # take alternative values for 2050 in step 4
+            solar[-1] = data[i+1][-3]
+        gamma = solar[-1] + wind[-1]
+        t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_country_data(ISO[(i-1)/2])    
+        alpha_opt = get_optimal_mix_balancing(L,Gw,Gs,gamma,CS=None)
+        alpha.append(alpha_opt)
+        print ISO[(i-1)/2], alpha_opt
+    return alpha
+
+
 def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_inv=True):
     filename = prefix
     if (linecap.find('balred')>=0):
@@ -379,8 +483,8 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_i
     else:
         filename += '_linecap_'+linecap
     filename +=('_step_%u' % step)
-    if (linecap.find('balred')>=0):
-        if (capped_inv): filename += '_capped_investment'
+    if ('balred' in linecap and capped_inv):
+        filename += '_capped_investment'
     #print filename
     if os.path.exists('./results/Bvsg_'+filename+'.npy'):
         Bvsg=np.load('./results/Bvsg_'+filename+'.npy')
@@ -414,85 +518,6 @@ def get_balancing_vs_year(prefix='logfit_gamma',linecap='copper',step=2,capped_i
     return Bvsg
 
 
-def get_gamma_vs_year(path='./results/',prefix='logfit_gamma',step=2):
-    filename = prefix+'_vs_year_step_%u.npy' % step
-    if os.path.exists(path+filename):
-        gamma_vs_year = np.load(path+filename)
-        return gamma_vs_year
-    N = Nodes()
-    weight = []
-    for i in N:
-        weight.append(i.mean)
-    del N
-    gamma_vs_year = []
-    years=arange(1990,2050+1,1)
-    for year in years:
-        gamma=array(get_basepath_gamma(year,step=step))
-        counter = 0.
-        denom = 0.
-        for i in range(len(weight)):
-            counter += weight[i]*gamma[i]
-            denom += weight[i]
-        gamma_vs_year.append(counter/denom)
-        np.save(path+filename,gamma_vs_year)
-    return gamma_vs_year
-
-
-def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined'):
-    name = prefix + '.npy'
-    quantiles=transpose(np.load(path+name))
-    #print shape(quantiles)
-    N=Nodes()
-    km,kv,h0,lf=AtoKh(N) # h0: linecap today
-    del N
-    linecaps=np.zeros((2,100+1))
-    for i in range(2):
-         for j in range(100+1):
-            if (quantiles[i,j] == 0):
-                linecaps[i,j]=0
-            else:
-                copper_file = ('results/logfit_gamma_year_2050_linecap_copper_step_%u_flows.npy' % step)
-                h=get_quant(quantiles[i,j],filename=copper_file)
-                inv=0.
-                for l in range(len(h)):
-                    inv += get_positive(h[l]-h0[l])
-                linecaps[i,j]=inv
-       # for j in range(100+1):
-       #      if (quantiles[i,j] == 0):
-       #          h=h0
-       #      else:
-       #          h=get_quant(quantiles[i,j])
-       #      inv=0.
-       #      for l in range(len(h)):
-       #          inv += h[l]
-       #      linecaps[i,j]=inv
-    return linecaps
-
-
-def get_alpha_vs_year(path='./results/',prefix='logfit_gamma',step=2):
-    filename = prefix+'_alpha_vs_year_step_%u.npy' % step
-    if os.path.exists(path+filename):
-        alpha_vs_year = np.load(path+filename)
-        return alpha_vs_year
-    N = Nodes()
-    weight = []
-    for i in N:
-        weight.append(i.mean)
-    del N
-    alpha_vs_year = []
-    years=arange(1990,2050+1,1)
-    for year in years:
-        alpha=array(get_basepath_alpha(year,step=step))
-        counter = 0.
-        denom = 0.
-        for i in range(len(weight)):
-            counter += weight[i]*alpha[i]
-            denom += weight[i]
-        alpha_vs_year.append(counter/denom)
-        np.save(path+filename,alpha_vs_year)
-    return alpha_vs_year
-
-
 def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',step=2,capped_inv=True):
     filename=path+'Fvsg_'+prefix
     if (linecap.find('balred')>=0):
@@ -500,8 +525,8 @@ def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',s
     else:
         filename += '_linecap_'+linecap
     filename += '_step_%u' % step
-    if (linecap.find('balred')>=0):
-        if (capped_inv): filename += '_capped_investment'
+    if ('balred' in linecap and capped_inv):
+        filename += '_capped_investment'
     if os.path.exists(filename+'.npy'):
         Fvsg=np.load(filename+'.npy')
         return Fvsg
@@ -534,34 +559,9 @@ def get_flows_vs_year(prefix='logfit_gamma',path='./results/',linecap='copper',s
     return Fvsg
 
 
-def get_optimal_alphas(txtfile='../DataAndPredictionsGammaAlpha/gamma.csv',step=2):
-    data = np.genfromtxt(txtfile,delimiter=',',skip_header=0)
-
-    ISO = ['AT', 'BE', 'BG', 'BA', 'CZ', 'CH', 'DE', 'DK', 'ES', 
-    'FR', 'FI', 'GB', 'GR', 'HU', 'IT', 'IE', 'HR', 'LU', 'NO', 
-    'NL', 'PT', 'PL', 'RO', 'SE', 'SK', 'SI', 'RS']
-
-    alpha = []    
-    for i in arange(1,data.shape[0]-1,2): # loop over countries
-        wind = array(data[i][2:-4])
-        solar = array(data[i+1][2:-4])
-        if (step == 3):
-            wind[-1] = data[i][-4] # take alternative values for 2050 in step 3
-            solar[-1] = data[i+1][-4]
-        elif (step == 4):
-            wind[-1] = data[i][-3] # take alternative values for 2050 in step 4
-            solar[-1] = data[i+1][-3]
-        gamma = solar[-1] + wind[-1]
-        t, L, Gw, Gs, datetime_offset, datalabel = get_ISET_country_data(ISO[(i-1)/2])    
-        alpha_opt = get_optimal_mix_balancing(L,Gw,Gs,gamma,CS=None)
-        alpha.append(alpha_opt)
-        print ISO[(i-1)/2], alpha_opt
-    return alpha
-
-
 def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantiles_refined',step=2,capped_inv=True):
     outfile = path+('linecaps_vs_year_step_%u' % step)
-    if (capped_inv): outfile += 'capped_investment'
+    if (capped_inv): outfile += '_capped_investment'
     outfile += '.npy'
     if (os.path.exists(outfile)):
         linecaps = np.load(outfile)
@@ -616,7 +616,7 @@ def get_investment_vs_year(path='./results',prefix='logistic_gamma_balred_quanti
     return investment
 
 
-def get_import_and_deficit(path='./results/',datpath='./data/',step=2,linecap='copper'):
+def get_import_and_deficit(path='./results/',datpath='./data/',step=2,linecap='copper',capped_inv=True):
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
@@ -631,7 +631,7 @@ def get_import_and_deficit(path='./results/',datpath='./data/',step=2,linecap='c
         if ('balred' in linecap): fname += '_'+linecap
         else: fname += '_linecap_'+linecap
         fname += '_step_%u' % step
-        if ('balred' in linecap):
+        if ('balred' in linecap and capped_inv):
             fname += '_capped_investment'
         fname += '_nodes.npz'
         N = Nodes(load_filename=fname)
@@ -656,18 +656,21 @@ def get_import_and_deficit(path='./results/',datpath='./data/',step=2,linecap='c
         del N
 
     lc = linecap
-    if (lc.find('balred') == -1):
+    if (not 'balred' in lc):
         lc = 'linecap_'+lc
     i=0
     for iso in ISO:
-        outfile = 'import_and_deficit_%s_step_%u_%s.npy' % (lc,step,iso)
+        outfile = 'import_and_deficit_%s_step_%u_%s' % (lc,step,iso)
+        if ('balred' in linecap and capped_inv):
+            outfile += '_capped_investment'
+        outfile += '.npy'
         data=np.array([np.array(years),np.array(node_import[:,i]),np.array(deficit[:,i])])
         np.save(path+outfile,data)
         i += 1
     return
 
 
-def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,linecap='copper'):
+def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,linecap='copper',capped_inv=True):
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
@@ -681,7 +684,7 @@ def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,lineca
         if ('balred' in linecap): fname += '_'+linecap
         else: fname += '_linecap_'+linecap
         fname += '_step_%u' % step
-        if ('balred' in linecap):
+        if ('balred' in linecap and capped_inv):
             fname += '_capped_investment'
         fname += '_nodes.npz'
         N = Nodes(load_filename=fname)
@@ -707,13 +710,16 @@ def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,lineca
     i=0
     for iso in ISO:
         outfile = 'curtailment_and_excess_%s_step_%u_%s.npy' % (lc,step,iso)
+        if ('balred' in linecap and capped_inv):
+            outfile += '_capped_investment'
+        outfile += '.npy'
         data=np.array([np.array(years),np.array(curtailment[:,i]),np.array(excess[:,i])])
         np.save(path+outfile,data)
         i += 1
     return
 
 
-def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,linecap='copper'):
+def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,linecap='copper',capped_inv=True):
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
@@ -726,7 +732,7 @@ def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,l
         if ('balred' in linecap): fname += '_'+linecap
         else: fname += '_linecap_'+linecap
         fname += '_step_%u' % step
-        if ('balred' in linecap):
+        if ('balred' in linecap and capped_inv):
             fname += '_capped_investment'
         fname += '_nodes.npz'
         N = Nodes(load_filename=fname)
@@ -749,7 +755,10 @@ def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,l
         lc = 'linecap_'+lc
     i=0
     for iso in ISO:
-        outfile = 'balancing_quantiles_%s_step_%u_%s.npy' % (lc,step,iso)
+        outfile = 'balancing_quantiles_%s_step_%u_%s' % (lc,step,iso)
+        if ('balred' in linecap and capped_inv):
+            outfile += '_capped_investment'
+        outfile += '.npy'
         np.save(path+outfile,bal_quant[:,i,:])
         i += 1
     return
@@ -993,20 +1002,7 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     pp = []
     i=0
     for linecap in linecaps:
-        if (linecap.find('balred')>=0):
-            name=prefix+'_'+linecap
-        else:
-            name = prefix+'_linecap_'+linecap
-        name += ('_step_%u' % step)
-        if (linecap.find('balred')>=0):
-            if (capped_inv):
-                name += '_capped_investment'
-        fname = 'Bvsg_'+name+'.npy'
-        print 'Processing '+fname
-        if not os.path.exists(path+fname):
-            data = get_balancing_vs_year(prefix=prefix,step=step,linecap=linecap,capped_inv=capped_inv)
-        else:
-            data = np.load(path+fname)
+        data = get_balancing_vs_year(prefix=prefix,step=step,linecap=linecap,capped_inv=capped_inv)
         pp_x = array(data[:,0])
         pp_y = array(data[:,1]) # balancing
         # excess balancing is not so easy here
@@ -1178,7 +1174,7 @@ def plot_investment_vs_year(path='./results/',prefix='logistic_gamma_balred_quan
     save_figure(picname)
 
 
-def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportunities for '):
+def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportunities for ',capped_inv=True):
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
@@ -1196,7 +1192,10 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         i=0
         pp_label = ['overproduction','export with copper plate transmission',r'export with 90$\,$% balancing reduction transmission',r'export with 70$\,$% balancing reduction transmission','export with transmission lines as of today']
         for lica in lc:
-            datfile = 'curtailment_and_excess_%s_step_%u_%s.npy' % (lica,step,iso)
+            datfile = 'curtailment_and_excess_%s_step_%u_%s' % (lica,step,iso)
+            if (balred in lica and capped_inv):
+                datfile += '_capped_investment'
+            datfile += '.npy'
             data = np.load(path+datfile)
             years = data[0,:]
             curtailment = data[1,:]
@@ -1223,11 +1222,14 @@ def plot_export_and_curtailment(path='./results/',step=2,title_='Export opportun
         tlte += ISO2name(ISO=iso)
         fig.suptitle(tlte,fontsize=14,y=0.96)
 
-        picname = 'excess_and_export_vs_year'+ ('_step_%u' %step) + ('_%s.pdf' % iso)
+        picname = 'excess_and_export_vs_year'+ ('_step_%u' %step) + ('_%s' % iso)
+        if capped_inv:
+            picname += '_capped_investment'
+        picname += '.pdf'
         save_figure(picname)
 
 
-def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunities for '):
+def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunities for ',capped_inv=True):
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
@@ -1245,7 +1247,10 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         i=0
         pp_label = ['deficit','import with copper plate transmission',r'import with 90$\,$% balancing reduction transmission',r'import with 70$\,$% balancing reduction transmission','import with transmission lines as of today']
         for lica in lc:
-            datfile = 'import_and_deficit_%s_step_%u_%s.npy' % (lica,step,iso)
+            datfile = 'import_and_deficit_%s_step_%u_%s' % (lica,step,iso)
+            if (balred in lica and capped_inv):
+                datfile += '_capped_investment'
+            datfile += '.npy'
             data = np.load(path+datfile)
             years = data[0,:]
             node_import = np.array(data[1,:])
@@ -1277,11 +1282,14 @@ def plot_import_and_deficit(path='./results/',step=2,title_='Import opportunitie
         tlte += ISO2name(ISO=iso)
         fig.suptitle(tlte,fontsize=14,y=0.96)
 
-        picname = 'deficit_and_import_vs_year'+ ('_step_%u' %step) + ('_%s.pdf' % iso)
+        picname = 'deficit_and_import_vs_year'+ ('_step_%u' %step) + ('_%s' % iso)
+        if capped_inv:
+            picname += '_capped_investment'
+        picname += '.pdf'
         save_figure(picname)
 
 
-def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2):
+def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2,capped_inv=True):
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
@@ -1298,7 +1306,10 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
         pp_x=years
         i=0
         for lc in linecap:
-            filename='%s_quantiles_%s_step_%u_%s.npy' % (qtype,lc,step,iso)
+            filename='%s_quantiles_%s_step_%u_%s' % (qtype,lc,step,iso)
+            if (balred in linecap and capped_inv):
+                filename += '_capped_investment'
+            filename += '.npy'
             quantiles=np.load(path+filename) # (years,quant) array
             if (quant==0.9):
                 quantile=nhours*quantiles[:,0]
@@ -1323,11 +1334,13 @@ def plot_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2)
         title_ = ('%u%% %s quantiles for ' % (100.*quant,qtype))+ ISO2name(ISO=iso)
         fig.suptitle(title_,fontsize=14,y=0.96)
 
-        picname = ('%u_percent_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ ('_%s.pdf' % iso)
+        picname = ('%u_percent_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ ('_%s' % iso)
+        if (capped_inv): picname += '_capped_investment'
+        picname += '.pdf'
         save_figure(picname)
 
 
-def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2):
+def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=0.9,step=2,capped_inv=True):
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
@@ -1354,7 +1367,10 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
         quantile=np.zeros(len(years))
         j=0
         for iso in ISO:
-            filename='%s_quantiles_%s_step_%u_%s.npy' % (qtype,lc,step,iso)
+            filename='%s_quantiles_%s_step_%u_%s' % (qtype,lc,step,iso)
+            if (balred in lc and capped_inv):
+                filename += '_capped_investment'
+            filename += '.npy'
             quantiles=np.load(path+filename) # (years,quant) array
             if (quant==0.9):
                 quantile += weight[j]*nhours*np.array(quantiles[:,0])
@@ -1381,7 +1397,9 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
     title_ = ('%u%% %s quantiles for Europe' % (100.*quant,qtype))
     fig.suptitle(title_,fontsize=14,y=0.96)
 
-    picname = ('%u_percent_cumulative_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)+ '.pdf'
+    picname = ('%u_percent_cumulative_%s_quantiles_vs_year' %(100*quant,qtype))+ ('_step_%u' %step)
+    if capped_inv: picname += '_capped_investment'
+    picname += '.pdf'
     save_figure(picname)
         
 
@@ -1464,7 +1482,6 @@ def plot_flows_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
-    plt.draw()
     plt.show()
     return
         
@@ -1504,7 +1521,6 @@ def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_qua
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
-    plt.draw()
     plt.show()
     return
         
@@ -1544,7 +1560,6 @@ def plot_investment_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_q
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
-    plt.draw()
     plt.show()
     return
 
@@ -1638,7 +1653,7 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
     return
 
 
-def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,yearmin=2010,yearmax=2050):
+def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,yearmin=2010,yearmax=2050,capped_inv=True):
     years = np.arange(yearmin,yearmax+1,5)
     # linecap = ['0.40Q','today','balred_0.90']
     # lbl = ['original mismatch','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction quantile line capacities']
@@ -1653,15 +1668,13 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
     for year in years:
         mismatch = []
         ISO = []
-        filename = 'mismatch_distribution_year_{0}_step_{1}_AT.pdf'.format(year,step)
-        # if os.path.exists(figpath+filename): continue
         for lc in linecap:
             fname = 'logfit_gamma_year_%u' % year
             if ('balred' in lc): fname += '_'+lc
             else: fname += '_linecap_'+lc
             fname += '_step_%u' % step
-            # if ('balred' in lc):
-            #     fname += '_capped_investment'
+            if ('balred' in lc and capped_inv):
+                fname += '_capped_investment'
             fname += '_nodes.npz'
             N = Nodes(load_filename=fname)
             mism = [(n.curtailment - n.balancing)/(n.mean) for n in N]
@@ -1689,7 +1702,9 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
             ax.axis(xmin=-2.0,xmax=4.0,ymin=0,ymax=2000)
             ax.set_xlabel('Mismatch between load and generation/av.h.l.')
             ax.set_ylabel('Incidence/h')
-            filename = 'mismatch_distribution_year_{0}_step_{1}_{2}.pdf'.format(year,step,iso)
+            filename = 'mismatch_distribution_year_{0}_step_{1}_{2}'.format(year,step,iso)
+            if capped_inv: filename += '_capped_investment'
+            filename += '.pdf'
             gcf().set_size_inches([9*1.5,3*1.75]) 
             save_figure(filename)
             i += 1
