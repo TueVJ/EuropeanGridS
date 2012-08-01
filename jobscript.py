@@ -21,7 +21,7 @@ def copper_flow():
     np.save('./results/'+'copper_flows',F)
 
 
-def gamma_homogenous(linecap='copper',start=None,stop=None,alpha=None,gpercent=None):
+def gamma_homogeneous(linecap='copper',start=None,stop=None,alpha=None,gpercent=None):
     if (linecap == 'copper'):
         copper = 1
         h0 = None
@@ -68,7 +68,7 @@ def gamma_homogenous(linecap='copper',start=None,stop=None,alpha=None,gpercent=N
         print "Now calculating for gamma = ",gamma
         N.set_gammas(gamma)
         F = sdcpf(N,copper=copper,h0=h0)
-        name = ('homogenous_gamma_%.2f' % gamma)+'_linecap_'+linecap
+        name = ('homogeneous_gamma_%.2f' % gamma)+'_linecap_'+linecap
         if (alpha != None):
             name += '_alpha_%.2f' % alpha
         print name
@@ -76,7 +76,7 @@ def gamma_homogenous(linecap='copper',start=None,stop=None,alpha=None,gpercent=N
         np.save('./results/'+name+'_flows',F)
 
 
-def gamma_homogenous_balred(red=[0.70,0.90],path='./results/',guessfile='homogenous_gamma_balred_quantiles',notrans_file='Bvsg_homogenous_gamma_linecap_0.40Q',copper_file='Bvsg_homogenous_gamma_linecap_copper',start=None,stop=None):
+def gamma_homogeneous_balred(red=[0.70,0.90],path='./results/',guessfile='homogeneous_gamma_balred_quantiles',notrans_file='Bvsg_homogeneous_gamma_linecap_0.40Q',copper_file='Bvsg_homogeneous_gamma_linecap_copper',start=None,stop=None):
     if start != None:
         skip = start
     else:
@@ -102,17 +102,17 @@ def gamma_homogenous_balred(red=[0.70,0.90],path='./results/',guessfile='homogen
         print "Now calculating for gamma = ",gamma
         save_filename = []
         for i in range(len(red)):
-            save_filename.append(('homogenous_gamma_%.2f_balred_%.2f' % (gamma,red[i])))
+            save_filename.append(('homogeneous_gamma_%.2f_balred_%.2f' % (gamma,red[i])))
         balmax=balmaxes[gval]
         balmin=balmins[gval]
         guess=[0.0,0.0]
-        f_notrans='homogenous_gamma_%.2f_linecap_0.40Q_nodes.npz' % gamma
+        f_notrans='homogeneous_gamma_%.2f_linecap_0.40Q_nodes.npz' % gamma
         if (gval == 26): guess=[0.75,0.86]
         if (start == 50): guess=[0.8075,0.9075]
         if (last_quant[0] !=0.): guess=last_quant
         last_quant=find_balancing_reduction_quantiles(reduction=red,eps=1.e-4,guess=guess,stepsize=0.0025,copper=balmin,notrans=balmax,file_notrans=f_notrans,gamma=gamma,alpha=0.7,save_filename=save_filename)
         quantiles.append(np.array(last_quant).copy())
-    qsave_file='homogenous_gamma'
+    qsave_file='homogeneous_gamma'
     if (start != None):
         qsave_file += '_from_%.2f' % min(gvals)
     if (stop != None):
@@ -311,7 +311,7 @@ def gamma_logfit_balred_capped(path='./results/',step=2,start=None,stop=None):
 ########### Process the results ######################
 ######################################################
 
-def get_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecap='copper'):
+def get_balancing_vs_gamma(path='./results/',prefix='homogeneous_gamma',linecap='copper'):
     filename='Bvsg_'+prefix
     if (linecap.find('balred') >= 0): filename += '_'+linecap + '.npy'
     else: filename += ('_linecap_%s.npy' % linecap)
@@ -341,7 +341,7 @@ def get_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecap='
     return Bvsg
 
 
-def get_flows_vs_gamma(prefix='homogenous_gamma',path='./results/',linecap='copper'):
+def get_flows_vs_gamma(prefix='homogeneous_gamma',path='./results/',linecap='copper'):
     filename='Fvsg_'+prefix
     if (linecap.find('balred') >= 0): filename += '_'+linecap + '.npy'
     else: filename += ('_linecap_%s.npy' % linecap)
@@ -372,7 +372,7 @@ def get_flows_vs_gamma(prefix='homogenous_gamma',path='./results/',linecap='copp
     return Fvsg
 
 
-def get_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined'):
+def get_linecaps_vs_gamma(path='./results/',prefix='homogeneous_gamma_balred_quantiles_refined'):
     name = prefix + '.npy'
     quantiles=transpose(np.load(path+name))
     #print shape(quantiles)
@@ -776,7 +776,7 @@ def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,l
 # cl = ['#8F07BC','#4007BC','#F48709','#0C9D4C','#9D0C2B'] # lynnn (CL) *
 # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL) *
 
-def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.70','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",picname='balancing_vs_homogenous_gamma.pdf'):
+def plot_balancing_vs_gamma(path='./results/',prefix='homogeneous_gamma',linecaps=['0.40Q','today','balred_0.70','balred_0.90','copper'],label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],title_=r"homogeneous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",picname='balancing_vs_homogeneous_gamma.pdf'):
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
@@ -805,7 +805,7 @@ def plot_balancing_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps
     save_figure(picname)
 
 
-def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0.40Q','today','balred_0.70','balred_0.90','copper'],title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_homogenous_gamma.pdf'):
+def plot_flows_vs_gamma(path='./results/',prefix='homogeneous_gamma',linecaps=['0.40Q','today','balred_0.70','balred_0.90','copper'],title_=r"homogeneous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate'],picname='flows_vs_homogeneous_gamma.pdf'):
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
     pp = []
@@ -841,7 +841,7 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogenous_gamma',linecaps=['0
     save_figure(picname)
     
 
-def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction']):
+def plot_linecaps_vs_gamma(path='./results/',prefix='homogeneous_gamma_balred_quantiles_refined',title_=r"homogeneous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction']):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -863,11 +863,11 @@ def plot_linecaps_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_qua
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    picname = 'linecaps_vs_homogenous_gamma' + '.pdf'
+    picname = 'linecaps_vs_homogeneous_gamma' + '.pdf'
     save_figure(picname)
 
 
-def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_quantiles_refined',title_=r"homogenous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"):
+def plot_investment_vs_gamma(path='./results/',prefix='homogeneous_gamma_balred_quantiles_refined',title_=r"homogeneous increase in $\gamma\,$; $ \alpha_{\rm W}=0.7 $",label=['needed for 70$\,$% balancing reduction','needed for 90$\,$% balancing reduction'],title_leg=r"2050 target: 100$\,$% VRES, $\alpha_{\rm W}=0.7 $"):
     linecaps=get_linecaps_vs_gamma(path=path,prefix=prefix)
     fig=figure(1); clf()
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -894,7 +894,7 @@ def plot_investment_vs_gamma(path='./results/',prefix='homogenous_gamma_balred_q
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
 
-    picname = 'investment_vs_homogenous_gamma' + '.pdf'
+    picname = 'investment_vs_homogeneous_gamma' + '.pdf'
     save_figure(picname)
 
 
@@ -931,7 +931,7 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
         pp_y = pp_y - (1.-gamma_vs_year)
         pp_ = host.plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
-        # plot homogenous balancing for comparison
+        # plot homogeneous balancing for comparison
         bal_hom=get_balancing_vs_gamma(linecap=linecap)
         bal_hom=bal_hom[:,1]
         bal_hom_eff=np.interp(gamma_vs_year,gamma_hom,bal_hom)
@@ -952,7 +952,7 @@ def plot_balancing_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
-    text(1991,0.03,'dashed lines indicate corresponding homogenous',fontsize='small',fontstyle='italic')
+    text(1991,0.03,'dashed lines indicate corresponding homogeneous',fontsize='small',fontstyle='italic')
     text(1991,0.015,'gamma-growth balancing',fontsize='small',fontstyle='italic')
 
     picname = picname +'_'+ prefix + ('_step_%u' %step)
@@ -1016,7 +1016,7 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     legend()
-    text(1991,0.4,'dashed lines indicate corresponding homogenous',fontsize='small',fontstyle='italic')
+    text(1991,0.4,'dashed lines indicate corresponding homogeneous',fontsize='small',fontstyle='italic')
     text(1991,0.15,'gamma-growth flows',fontsize='small',fontstyle='italic')
 
     picname = picname +'_'+ prefix + ('_step_%u' %step)
@@ -1329,12 +1329,12 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     fig=plt.figure(1); plt.clf()
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     ax = fig.add_subplot(111,projection='3d')
-    linecap = ['0.40Q','today','balred_0.90']
-    lbl = ['no transmission','line capacities as of today',r'90$\,$% bal. reduction quantile line capacities']
-    cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
-    # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
-    # linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
-    # lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
+    # cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
+    # linecap = ['0.40Q','today','balred_0.90']
+    # lbl = ['no transmission','line capacities as of today',r'90$\,$% bal. reduction quantile line capacities']
+    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    lbl=['no transmission','line capacities as of today',r'70$\,$% bal. reduction quantile line capacities',r'90$\,$% bal. reduction quantile line capacities','copper plate']
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1353,8 +1353,8 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
             gamma_vs_year=np.array(get_gamma_vs_year(step=st))[skip:]
             bvsg[i,:] = data[skip:,1]-(1.-gamma_vs_year)
             i += 1
-        ax.plot_surface(X,Y,bvsg.T,alpha=0.4,rstride=5,cstride=1,color=cl[ii],label=lbl[ii])
-        ax.plot([],[],color=cl[ii],label=lbl[ii],lw=8,alpha=0.4) # only for legend
+        ax.plot_surface(X,Y,bvsg.T,alpha=0.3,rstride=5,cstride=1,color=cl[ii],label=lbl[ii])
+        ax.plot([],[],color=cl[ii],label=lbl[ii],lw=8,alpha=0.3) # only for legend
         ii+=1
     ax.set_xticks(scenarios)
     ax.set_xticklabels(mixes)
