@@ -91,7 +91,7 @@ def gamma_homogeneous_balred(path='./results/',red=[0.70,0.90],notrans_file='Bvs
         gamma = gval*0.01
         balmax=balmaxes[gval]
         balmin=balmins[gval]
-        print '% in gamma_logfit_balred:'
+        print '% in gamma_homogeneous_balred:'
         # print 'alpha: ', alpha
         # print 'gamma: ', gamma
         print 'balmax: ', balmax
@@ -163,7 +163,7 @@ def gamma_logfit(path='./results/',linecap='copper',step=2,start=None,stop=None)
         skip_end = stop
     else:
         skip_end=60
-    years= arange(1990+skip,2050+1-skip_end,1)
+    years= arange(1990+skip,1990+skip_end+1,1)
     for year in years:
         gammas=array(get_basepath_gamma(year,step=step))
         alphas=array(get_basepath_alpha(year,step=step))
@@ -1318,7 +1318,7 @@ def plot_cumulative_quantiles_vs_year(path='./results/',qtype='balancing',quant=
     save_figure(picname)
         
 
-def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
+def plot_balancing_vs_year_3d(path='./results',skip=30,step=2,capped_inv=True):
     fig=plt.figure(1); plt.clf()
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     ax = fig.add_subplot(111,projection='3d')
@@ -1362,7 +1362,7 @@ def plot_balancing_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     return
         
 
-def plot_flows_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
+def plot_flows_vs_year_3d(path='./results',skip=30,step=2,capped_inv=True):
     fig=plt.figure(1); plt.clf()
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
@@ -1401,7 +1401,7 @@ def plot_flows_vs_year_3d(path='./results',skip=25,step=2,capped_inv=True):
     return
         
 
-def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_quantiles',skip=25,step=2,capped_inv=True):
+def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_quantiles',skip=30,step=2,capped_inv=True):
     fig=plt.figure(1); plt.clf()
     fig.subplots_adjust(top=0.8) # leave more top margin for the extra ticks
     cl = ['#E97F02','#F8CA00'] # by sugar (CL)
@@ -1476,6 +1476,59 @@ def plot_investment_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_q
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
     plt.show()
+    return
+
+
+def plot_balancing_vs_year_contour(path='./results/',step=2,capped_inv=True,linecap='copper',skip=30):
+    fig=plt.figure(1); plt.clf()
+    ax = fig.add_subplot(111)
+    lbl = ''
+    if (linecap == '0.40Q'):
+        lbl = 'no transmission'
+    elif (linecap == 'today'):
+        lbl = 'line capacities as of today'
+    elif (linecap == 'balred_0.70'):
+        lbl = r'70$\,$% bal. reduction line capacities'        
+    elif (linecap == 'balred_0.90'):
+        lbl = r'90$\,$% bal. reduction line capacities'        
+    elif (linecap == 'copper'):
+        lbl = 'copper plate'         
+    else: print 'invalid linecap ',linecap; return
+    mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
+    steps = []
+    if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
+    elif step==3: steps=[31,32,33,3,34,35]
+    else: print 'invalid step ',step; return
+    # get the coordinates
+    years = np.arange(1990+skip,2050+1,1) # X
+    scenarios = range(len(steps)) # Y
+    X, Y = np.meshgrid(scenarios,years)
+    bvsg = np.zeros((len(scenarios),len(years))) # Z
+    i=0
+    for st in steps:
+        data = get_balancing_vs_year(linecap=linecap,step=st,capped_inv=capped_inv)
+        gamma_vs_year=np.array(get_gamma_vs_year(step=st))[skip:]
+        bvsg[i,:] = data[skip:,1]-(1.-gamma_vs_year)
+        i += 1
+    vmn=0.0
+    vmx=0.33
+    lvls=np.linspace(vmn,vmx,102)
+    plt.contourf(X,Y,bvsg.T,102,cmap=get_cmap('YlOrBr'),levels=lvls)
+    cbar=plt.colorbar()
+    tcks = np.arange(vmn,vmx+0.03,0.03)
+    cbar.set_ticks(tcks)
+    cbar.set_ticklabels(['{0:.2f}'.format(tck) for tck in tcks])
+    cs = plt.contour(X,Y,bvsg.T,15,colors='k')
+    plt.clabel(cs,inline=1,fontsize=10)
+    ax.set_xticks(scenarios)
+    ax.set_xticklabels(mixes)
+    ax.set_xlabel('Final 2050 wind/solar mix')
+    ax.set_ylabel('Reference year')
+    figname = 'balancing_contour_plot_step_{0}'.format(step)
+    if (not 'balred' in linecap):
+        figname += '_linecap'
+    figname += '_'+linecap+'.pdf'
+    save_figure(figname)
     return
 
 
