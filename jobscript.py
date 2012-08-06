@@ -1479,21 +1479,12 @@ def plot_investment_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_q
     return
 
 
-def plot_balancing_vs_year_contour(path='./results/',step=2,capped_inv=True,linecap='copper',skip=30):
+def plot_balancing_vs_year_contour(path='./results/',step=2,capped_inv=True,linca=[0,1,3],skip=30):
     fig=plt.figure(1); plt.clf()
-    ax = fig.add_subplot(111)
-    lbl = ''
-    if (linecap == '0.40Q'):
-        lbl = 'no transmission'
-    elif (linecap == 'today'):
-        lbl = 'line capacities as of today'
-    elif (linecap == 'balred_0.70'):
-        lbl = r'70$\,$% bal. reduction line capacities'        
-    elif (linecap == 'balred_0.90'):
-        lbl = r'90$\,$% bal. reduction line capacities'        
-    elif (linecap == 'copper'):
-        lbl = 'copper plate'         
-    else: print 'invalid linecap ',linecap; return
+    fig.subplots_adjust(left=0.05,right=0.9) # leave more left margin for the colorbar
+    plt.gcf().set_size_inches([15,4.5]) 
+    linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    linecap = [linecap[i] for i in linca]
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
     if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
@@ -1504,30 +1495,52 @@ def plot_balancing_vs_year_contour(path='./results/',step=2,capped_inv=True,line
     scenarios = range(len(steps)) # Y
     X, Y = np.meshgrid(scenarios,years)
     bvsg = np.zeros((len(scenarios),len(years))) # Z
-    i=0
-    for st in steps:
-        data = get_balancing_vs_year(linecap=linecap,step=st,capped_inv=capped_inv)
-        gamma_vs_year=np.array(get_gamma_vs_year(step=st))[skip:]
-        bvsg[i,:] = data[skip:,1]-(1.-gamma_vs_year)
-        i += 1
-    vmn=0.0
-    vmx=0.33
-    lvls=np.linspace(vmn,vmx,102)
-    plt.contourf(X,Y,bvsg.T,102,cmap=get_cmap('YlOrBr'),levels=lvls)
-    cbar=plt.colorbar()
-    tcks = np.arange(vmn,vmx+0.03,0.03)
-    cbar.set_ticks(tcks)
-    cbar.set_ticklabels(['{0:.2f}'.format(tck) for tck in tcks])
-    cs = plt.contour(X,Y,bvsg.T,15,colors='k')
-    plt.clabel(cs,inline=1,fontsize=10)
-    ax.set_xticks(scenarios)
-    ax.set_xticklabels(mixes)
-    ax.set_xlabel('Final 2050 wind/solar mix')
-    ax.set_ylabel('Reference year')
+    ii = 0 
+    for lc in linecap:
+        ax = fig.add_subplot(1,len(linecap),ii+1)
+        ax.grid(True)
+        lbl = ''
+        if (lc == '0.40Q'):
+            lbl = 'no transmission'
+        elif (lc == 'today'):
+            lbl = 'line capacities as of today'
+        elif (lc == 'balred_0.70'):
+            lbl = r'70$\,$% bal. reduction line capacities'        
+        elif (lc == 'balred_0.90'):
+            lbl = r'90$\,$% bal. reduction line capacities'        
+        elif (lc == 'copper'):
+            lbl = 'copper plate'         
+        i=0
+        for st in steps:
+            data = get_balancing_vs_year(linecap=lc,step=st,capped_inv=capped_inv)
+            gamma_vs_year=np.array(get_gamma_vs_year(step=st))[skip:]
+            bvsg[i,:] = data[skip:,1]-(1.-gamma_vs_year)
+            i += 1
+        vmn=0.0
+        vmx=0.33
+        lvls=np.linspace(vmn,vmx,102)
+        plt.contourf(X,Y,bvsg.T,102,cmap=get_cmap('YlOrBr'),levels=lvls)
+        if (ii+1 == len(linecap)):
+            cax = axes([0.93, 0.1, 0.015, 0.8])
+            cbar = plt.colorbar(cax=cax)
+            tcks = np.arange(vmn,vmx+0.03,0.03)
+            cbar.set_ticks(tcks)
+            cbar.set_ticklabels(['{0:.2f}'.format(tck) for tck in tcks])
+        cslvls = np.arange(0.02,0.4,0.02)
+        cs = ax.contour(X,Y,bvsg.T,cslvls,colors='k')
+        plt.clabel(cs,inline=1,fontsize=10)
+        ax.set_xticks(scenarios)
+        ax.set_xticklabels(mixes)
+        ax.set_xlabel('Final 2050 wind/solar mix')
+        ax.set_ylabel('Reference year')
+        ax.text(0.4,1990+skip+2,lbl,bbox=dict(facecolor='w',boxstyle='square,pad=0.4'),fontstyle='italic')#,fontsize='small')
+        ii += 1
     figname = 'balancing_contour_plot_step_{0}'.format(step)
-    if (not 'balred' in linecap):
-        figname += '_linecap'
-    figname += '_'+linecap+'.pdf'
+    for lc in linecap:
+        if (not 'balred' in lc):
+            figname += '_linecap'
+        figname += '_'+lc
+    figname += '.pdf'
     save_figure(figname)
     return
 
