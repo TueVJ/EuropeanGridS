@@ -6,6 +6,7 @@ from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
+TODAY_TOTAL_LINECAP = 126175.0
 
 ######################################################
 ########### Generate the results #####################
@@ -754,6 +755,39 @@ def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,l
         i += 1
     return
 
+
+def collect_line_capacities_latex(path='./results/',years=[2015,2020,2030,2040,2050],linecaps=['balred_0.70','balred_0.90'],step=2):
+    # today's linecaps
+    Nlinks = 44
+    N = Nodes()
+    k,kv,h,lF = AtoKh(N)
+    h0 = h[0:2*Nlinks]
+    del N
+    # linecaps from quantiles
+    filename = 'logistic_gamma_balred_quantiles_step_{0}.npy'.format(step)
+    quantiles = np.load(path+filename)
+    copper_flow_file=path+'logfit_gamma_year_2050_linecap_copper_step_{0}_flows.npy'.format(step)
+    cap = np.zeros((2*Nlinks,len(years),shape(quantiles)[0]))
+    i = 0
+    for year in years:
+        quantile = quantiles[year-1990,:]
+        j = 0
+        for quant in quantile:
+            print quant
+            if (quant == 0):
+                cap[:,i,j] = np.zeros(2*Nlinks)
+            else:
+                cap[:,i,j] = get_quant(quant,filename=copper_flow_file)
+            j += 1
+        i += 1
+    i = 0
+    for link in lF:
+        outstr = str(link[0])+' & {0}'.format(h0[year-1990])
+        for j in range(shape(quantiles)[1]):
+            for k in range(len(years)):
+                outstr += ' & {0}'.format(cap[i,k,j])
+        print outstr+r' \\',
+        i += 1
 
 ######################################################
 ########### Plot the results #########################
@@ -1526,6 +1560,7 @@ def plot_balancing_vs_year_contour(path='./results/',step=2,capped_inv=True,linc
             tcks = np.arange(vmn,vmx+0.03,0.03)
             cbar.set_ticks(tcks)
             cbar.set_ticklabels(['{0:.2f}'.format(tck) for tck in tcks])
+            cbar.set_label('Excess balancing/av.l.h.')
         cslvls = np.arange(0.02,0.4,0.02)
         cs = ax.contour(X,Y,bvsg.T,cslvls,colors='k')
         plt.clabel(cs,inline=1,fontsize=10)
@@ -1539,6 +1574,66 @@ def plot_balancing_vs_year_contour(path='./results/',step=2,capped_inv=True,linc
     for lc in linecap:
         if (not 'balred' in lc):
             figname += '_linecap'
+        figname += '_'+lc
+    figname += '.pdf'
+    save_figure(figname)
+    return
+
+
+def plot_linecaps_vs_year_contour(path='./results/',step=2,capped_inv=True,skip=30):
+    fig=plt.figure(1); plt.clf()
+    fig.subplots_adjust(left=0.13,right=0.83) # leave more right margin for the colorbar
+    linecap = ['balred_0.70']#,'balred_0.90'
+    plt.gcf().set_size_inches([4.5*len(linecap)+1.,4.5]) 
+    mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
+    steps = []
+    if step==2: steps=[21,22,23,2,24,25] # same order as mixes!
+    elif step==3: steps=[31,32,33,3,34,35]
+    else: print 'invalid step ',step; return
+    # get the coordinates
+    years = np.arange(1990+skip,2050+1,1) # X
+    scenarios = range(len(steps)) # Y
+    X, Y = np.meshgrid(scenarios,years)
+    lvsg = np.zeros((len(scenarios),len(years))) # Z
+    ii = 0 
+    for lc in linecap:
+        ax = fig.add_subplot(1,len(linecap),ii+1)
+        ax.grid(True)
+        lbl = ''
+        j=0
+        if (lc == 'balred_0.70'):
+            lbl = r'70$\,$% bal. reduction line capacities'
+            j=0
+        elif (lc == 'balred_0.90'):
+            lbl = r'90$\,$% bal. reduction line capacities'
+            j=1
+        i=0
+        for st in steps:
+            data = get_linecaps_vs_year(step=st,capped_inv=capped_inv)
+            lvsg[i,:] = data[j,skip:]/TODAY_TOTAL_LINECAP
+            i += 1
+        vmn=0.0
+        vmx=3.8
+        lvls=np.linspace(vmn,vmx,102)
+        plt.contourf(X,Y,lvsg.T,102,cmap=get_cmap('YlOrBr'),levels=lvls)
+        if (ii+1 == len(linecap)):
+            cax = axes([0.87, 0.1, 0.03, 0.8])
+            cbar = plt.colorbar(cax=cax)
+            tcks = np.arange(vmn,vmx+0.2,0.2)
+            cbar.set_ticks(tcks)
+            cbar.set_ticklabels(['{0:.1f}'.format(tck) for tck in tcks])
+            cbar.set_label(r'Total new net transfer capacities/i.o.t.')
+        ax.text(0.4,2050-3,lbl,bbox=dict(facecolor='w',boxstyle='square,pad=0.4'),fontstyle='italic')#,fontsize='small')
+        cslvls = np.arange(vmn,vmx+0.25,0.25)
+        cs = ax.contour(X,Y,lvsg.T,cslvls,colors='k')
+        plt.clabel(cs,inline=1,fontsize=10)
+        ax.set_xticks(scenarios)
+        ax.set_xticklabels(mixes)
+        ax.set_xlabel('Final 2050 wind/solar mix')
+        ax.set_ylabel('Reference year')
+        ii += 1
+    figname = 'linecap_contour_plot_step_{0}'.format(step)
+    for lc in linecap:
         figname += '_'+lc
     figname += '.pdf'
     save_figure(figname)
