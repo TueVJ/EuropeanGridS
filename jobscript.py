@@ -6,7 +6,7 @@ from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
-TODAY_TOTAL_LINECAP = 126175.0
+TODAY_TOTAL_LINECAP = 126175.0 # in MW
 
 ######################################################
 ########### Generate the results #####################
@@ -372,13 +372,13 @@ def get_flows_vs_gamma(path='./results/',prefix='homogeneous_gamma',linecap='cop
         flows=np.load(path+load_filename)
         a=0.
         b=0.
-        d=0.
+        nhours = len(flows[0])
         for i in flows:
             a+=sum(abs(i))
             b+=sum(i*i)
         print 'Absolute flows {0:.4e}, squared flows {1:.4e}'.format(a,b)
-        Fvsg[j,1]=a
-        Fvsg[j,2]=b
+        Fvsg[j,1]=a/(nhours*TODAY_TOTAL_LINECAP)
+        Fvsg[j,2]=b/(nhours*TODAY_TOTAL_LINECAP*TODAY_TOTAL_LINECAP)
         j+=1
     np.save(path+filename,Fvsg)
     return Fvsg
@@ -540,12 +540,13 @@ def get_flows_vs_year(path='./results/',prefix='logfit_gamma',linecap='copper',s
         flows=np.load(path+load_filename)
         a=0.
         b=0.
+        nhours=len(flows[0])
         for i in flows:
             a+=sum(abs(i))
             b+=sum(i*i)
         print 'Absolute flows {0:.4e}, squared flows {1:.4e}'.format(a,b)
-        Fvsg[j,1]=a
-        Fvsg[j,2]=b
+        Fvsg[j,1]=a/(nhours*TODAY_TOTAL_LINECAP)
+        Fvsg[j,2]=b/(nhours*TODAY_TOTAL_LINECAP*TODAY_TOTAL_LINECAP)
         j+=1
     np.save(filename,Fvsg)
     return Fvsg
@@ -756,7 +757,7 @@ def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,l
     return
 
 
-def collect_line_capacities_latex(path='./results/',years=[2015,2020,2030,2040,2050],linecaps=['balred_0.70','balred_0.90'],step=2):
+def collect_line_capacities_latex(path='./results/',years=[2020,2030,2040,2050],linecaps=['balred_0.70','balred_0.90'],step=2):
     # today's linecaps
     Nlinks = 44
     N = Nodes()
@@ -767,27 +768,30 @@ def collect_line_capacities_latex(path='./results/',years=[2015,2020,2030,2040,2
     filename = 'logistic_gamma_balred_quantiles_step_{0}.npy'.format(step)
     quantiles = np.load(path+filename)
     copper_flow_file=path+'logfit_gamma_year_2050_linecap_copper_step_{0}_flows.npy'.format(step)
-    cap = np.zeros((2*Nlinks,len(years),shape(quantiles)[0]))
+    cap = np.zeros((2*Nlinks,len(years),shape(quantiles)[1]))
     i = 0
     for year in years:
         quantile = quantiles[year-1990,:]
         j = 0
         for quant in quantile:
-            print quant
             if (quant == 0):
                 cap[:,i,j] = np.zeros(2*Nlinks)
             else:
                 cap[:,i,j] = get_quant(quant,filename=copper_flow_file)
             j += 1
         i += 1
-    i = 0
-    for link in lF:
-        outstr = str(link[0])+' & {0}'.format(h0[year-1990])
+    for i in range(2*Nlinks):
+        outstr = ''
+        if (i % 2) == 0:
+            outstr += str(lF[i/2][0])
+        else:
+            hlpstr = str(lF[i/2][0])
+            outstr += hlpstr[-2:]+' to '+hlpstr[:2]
+        outstr += ' & {0}'.format(int(h0[i]))
         for j in range(shape(quantiles)[1]):
             for k in range(len(years)):
-                outstr += ' & {0}'.format(cap[i,k,j])
-        print outstr+r' \\',
-        i += 1
+                outstr += ' & {0}'.format(int(round(cap[i,k,j],-1)))
+        print outstr+r' \\'
 
 ######################################################
 ########### Plot the results #########################
@@ -847,7 +851,7 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogeneous_gamma',linecaps=['
         else:
             data = np.load(path+fname)
         pp_x = array(data[:,0])
-        pp_y = array(data[:,1])/1.e9
+        pp_y = array(data[:,1])
         pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
         i += 1
@@ -855,7 +859,7 @@ def plot_flows_vs_gamma(path='./results/',prefix='homogeneous_gamma',linecaps=['
     fig.suptitle(title_,fontsize=14,y=0.96)
     axis(xmin=0,xmax=1,ymin=-0.05,ymax=5)
     xlabel('share $\gamma$ of VRES in total electricity production')
-    ylabel(r'sum of absolute flows/$10^9\,$MW')
+    ylabel(r'sum of absolute flows/t.m.f.')
 
     pp_label = label
     leg = legend(pp,pp_label,loc='upper left');
@@ -1014,7 +1018,7 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     for linecap in linecaps:
         data = get_flows_vs_year(prefix=prefix,step=step,linecap=linecap)
         pp_x = array(data[:,0])
-        pp_y = array(data[:,1])/1.e9
+        pp_y = array(data[:,1])
         pp_ = plot(pp_x,pp_y,lw=1.5,color=cl[i])
         pp.extend(pp_)
         fl_hom=get_flows_vs_gamma(linecap=linecap)
@@ -1036,7 +1040,7 @@ def plot_flows_vs_year(path='./results/',prefix='logfit_gamma',linecaps = ['0.40
     leg = legend(pp,pp_label,loc='upper left',title=title_leg);
     axis(xmin=1990,xmax=2050,ymin=-0.05,ymax=5.)
     xlabel('year')
-    ylabel(r'sum of absolute flows/$10^9\,$MW')
+    ylabel(r'sum of absolute flows/t.m.f.')
 
     ltext  = leg.get_texts();
     setp(ltext, fontsize='small')    # the legend text fontsize
@@ -1418,7 +1422,7 @@ def plot_flows_vs_year_3d(path='./results',skip=30,step=2,capped_inv=True):
         i=0
         for st in steps:
             data = get_flows_vs_year(linecap=lc,step=st,capped_inv=capped_inv)
-            fvsg[i,:] = data[skip:,1]*1.e-9
+            fvsg[i,:] = data[skip:,1]
             i += 1
         ax.plot_surface(X,Y,fvsg.T,alpha=0.3,rstride=5,cstride=1,color=cl[4-ii],label=lbl[ii])
         ax.plot([],[],color=cl[4-ii],label=lbl[ii],lw=8,alpha=0.3) # only for legend
@@ -1426,7 +1430,7 @@ def plot_flows_vs_year_3d(path='./results',skip=30,step=2,capped_inv=True):
     ax.set_xticklabels(mixes)
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Reference year')
-    ax.set_zlabel('Flows/10^9 MW')
+    ax.set_zlabel('Flows/t.m.f.')
     #ax.set_zlim([0.,0.5])
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
@@ -1709,7 +1713,7 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
     setp(ltext, fontsize='small')    # the legend text fontsize
     ax.axis(xmin=0.4,xmax=6.6,ymin=0.,ymax=7.)
     ax.set_xlabel('Final 2050 wind/solar mix')
-    ax.set_ylabel(r'Sum of absolute flows/$10^9\,$MW')
+    ax.set_ylabel(r'Sum of absolute flows/t.m.f.')
     fig.suptitle('{0}'.format(year))
     # replot in reverse order to get the bars right without messing up
     # the legend
@@ -1721,7 +1725,7 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
         j = 0
         for st in steps:
             data = get_flows_vs_year(step=st,linecap=lc,capped_inv=capped_inv)
-            fvss[j] = data[year-1990,1]*1.e-9
+            fvss[j] = data[year-1990,1]
             j += 1
         ax.bar(scenarios-0.4,fvss,width=0.8,color=cl[i])
         i += 1
