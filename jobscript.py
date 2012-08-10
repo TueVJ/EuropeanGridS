@@ -6,7 +6,7 @@ from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
-TODAY_TOTAL_LINECAP = 126175.0 # in MW
+TODAY_TOTAL_LINECAP = 126175.0-10000.0 # in MW, subtract LU->DE ficticious cap.
 
 ######################################################
 ########### Generate the results #####################
@@ -407,7 +407,7 @@ def get_linecaps_vs_gamma(path='./results/',prefix='homogeneous_gamma',alpha=0.7
                 inv=0.
                 for l in range(len(h)):
                     inv += get_positive(h[l]-h0[l])
-                linecaps[i,j]=inv
+                linecaps[i,j]=inv/TODAY_TOTAL_LINECAP
        # for j in range(100+1):
        #      if (quantiles[i,j] == 0):
        #          h=h0
@@ -583,7 +583,7 @@ def get_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quantil
                 inv=0.
                 for l in range(len(h)):
                     inv += get_positive(h[l]-h0[l])
-                linecaps[i,j]=inv
+                linecaps[i,j]=inv/TODAY_TOTAL_LINECAP
             # if (quantiles[i,j] == 0):
             #     h=h0
             # else:
@@ -1061,7 +1061,7 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     pp = []
     pp_x=arange(1990,2050+1,1)
     for i in range(2):
-        pp_y=linecaps[i,:]*1e-5
+        pp_y=linecaps[i,:]
         pp_=plot(pp_x,pp_y,lw=1.5,color=cl[i+2])
         pp.extend(pp_)
     pp_label=label
@@ -1071,7 +1071,7 @@ def plot_linecaps_vs_year(path='./results/',prefix='logistic_gamma_balred_quanti
     leg=legend(pp,pp_label,title=title_leg,loc='upper left')
     axis(xmin=1990,xmax=2050,ymin=0,ymax=10.)
     xlabel('year')
-    ylabel(r'necessary total new line capacities/$10^5\,$MW')
+    ylabel(r'necessary total new line capacities/i.o.t.')
 
     title_ = ''
     if capped_inv: title_ = 'Capped transmission investment'
@@ -1461,7 +1461,7 @@ def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_qua
         i=0
         for st in steps:
             data = get_linecaps_vs_year(path=path,prefix=prefix,step=st,capped_inv=capped_inv)
-            lvsg[i,:] = data[ii,skip:]*1.e-5
+            lvsg[i,:] = data[ii,skip:]
             i += 1
         ax.plot_surface(X,Y,lvsg.T,alpha=0.3,rstride=5,cstride=1,color=cl[1-ii],label=lbl[ii])
         ax.plot([],[],color=cl[1-ii],label=lbl[ii],lw=8,alpha=0.3) # only for legend
@@ -1469,7 +1469,7 @@ def plot_linecaps_vs_year_3d(path='./results/',prefix='logistic_gamma_balred_qua
     ax.set_xticklabels(mixes)
     ax.set_xlabel('Final 2050 wind/solar mix')
     ax.set_ylabel('Reference year')
-    ax.set_zlabel('New transmission line capacities/10^5 MW')
+    ax.set_zlabel('New transmission line capacities/i.o.t.')
     #ax.set_zlim([0.,0.5])
     leg = ax.legend(loc='upper left')
     ltext  = leg.get_texts();
@@ -1584,10 +1584,10 @@ def plot_balancing_vs_year_contour(path='./results/',step=2,capped_inv=True,linc
     return
 
 
-def plot_linecaps_vs_year_contour(path='./results/',step=2,capped_inv=True,skip=30):
+def plot_linecaps_vs_year_contour(path='./results/',step=2,linecap = ['balred_0.70'],capped_inv=True,skip=30):
     fig=plt.figure(1); plt.clf()
     fig.subplots_adjust(left=0.13,right=0.83) # leave more right margin for the colorbar
-    linecap = ['balred_0.70']#,'balred_0.90'
+    #,'balred_0.90'
     plt.gcf().set_size_inches([4.5*len(linecap)+1.,4.5]) 
     mixes = ['40/60','50/50','60/40','70/30','80/20','90/10'] # wind/solar
     steps = []
@@ -1614,10 +1614,10 @@ def plot_linecaps_vs_year_contour(path='./results/',step=2,capped_inv=True,skip=
         i=0
         for st in steps:
             data = get_linecaps_vs_year(step=st,capped_inv=capped_inv)
-            lvsg[i,:] = data[j,skip:]/TODAY_TOTAL_LINECAP
+            lvsg[i,:] = data[j,skip:]
             i += 1
         vmn=0.0
-        vmx=3.8
+        vmx=4.2
         lvls=np.linspace(vmn,vmx,102)
         plt.contourf(X,Y,lvsg.T,102,cmap=get_cmap('YlOrBr'),levels=lvls)
         if (ii+1 == len(linecap)):
