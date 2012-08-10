@@ -5,6 +5,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb}
+\usepackage{url}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  \setcounter{tocdepth}{0}
  \setcounter{secnumdepth}{5}
@@ -266,317 +267,395 @@ than load, and {\it curtailment}, i.e. the shedding of
 overproduction. At the same time, we include the constraints
 on the flows. Computationally speaking, this is a quadratic
 programming optimization problem. Numerical solutions are implemented
-in a number of packages, developed for MATLAB, C and Python. We
-describe in the following how the problem must be stated for the
-\texttt{CVXOPT} module for Python. Other implementations are quite
-similar. Along the way, we will come across the precise definitions of
-curtailment and balancing.
+in a number of packages, developed for MATLAB, C and Python. % We
+% describe in the following how the problem must be stated for the
+% \texttt{CVXOPT} module for Python. Other implementations are quite
+% similar. Along the way, we will come across the precise definitions of
+% curtailment and balancing.
+We describe in the following how it is done with C modules generated
+by \texttt{cvxgen}.
 
-\section{Implementing balancing and curtailment}
-\label{sec:3}
+\section{Balancing and flow calculation with \texttt{cvxgen}}
 
-The quadratic programming solver \texttt{CVXOPT} (from ConVeX
-OPTimisation) requires the information to be stored in a specifically
-shaped matrices. The form and values of these matrices help define the
-scenario and problem that one wants to optimize. The standard format of
-a quadratic programming problem is
+To calculate balancing needs and occurring flows, we employ the
+physical DC approximation to the full AC power flow. It is valid as
+long as the network is in a stable state, i.e. no significant voltage
+or phase shifts between the nodes, and for a network in which line
+resistances can be neglected. It has the obvious advantage that it
+minimizes the total dissipation in the network, i.e. the power losses,
+and the necessary flows.
+
+We first take a look at a situation in which there is no global
+mismatch between renewable energy generation and load.
 \begin{align}
-C&=x P x+q x \text{ -- the cost function to be minimized}
-\label{eq:cost} \\
-A x&=b \text{ -- the equality constraint}
-\label{eq:eq}\\
-G x &\leq h \text{ -- the inequality constraint}
-\label{eq:ieq}
+\sum_{i=1}^N \Delta_i =0
+\label{eq:nomis}
 \end{align}
-where $x$ is the variable that is varied and the other entities are
-parameters of the specific problem (don't confuse the cost matrix $P$
-with the power we talked about earlier!). In our case,
-$x$ does not only consist of the flows $F_l$, but we also want to
-minimize balancing $B_n$ and curtailment $R_n$ at each node. This
-means that our $x$ looks like
-\begin{align*}
-x=\left(\begin{matrix}
-F_1\\
-\vdots\\
-F_L\\
-B_1\\
-\vdots\\
-B_N\\
-R_1\\
-\vdots\\
-R_N
-\end{matrix}
-\right)
-\end{align*}
-
-Let's first take a look at the cost function. The quadratic parameter
-$P$ is a $(L+2N)\times(L+2N)$ matrix. It is simply chosen to be
-diagonal, since there is no distinguished link or node in the network
-and we do not want to introduce any ``synergy effects'' between flows,
-balancing and curtailment. We thus have:
-\begin{align*}
-P=\left(
-\begin{matrix}
-P_F & 0 & 0 \\
-0 & P_B & 0 \\
-0 & 0 & P_R
-\end{matrix}
-\right)
-\end{align*}
-Upon examination, we found that in Dominik Heide's code, curtailment is
-often shared between nodes. That is, in the event of a global positive
-mismatch where node $i$ has an overproduction of $R$ and node $j$ is
-perfectly balanced, Dominik's algorithm will have node $i$ export some
-of its overproduction to node $j$, and both will curtail amounts
-$0.5\cdot R$. This behavior is of course not desired since it leads to
-additional flows which are completely superfluous. The reason for
-these results is that Dominik minimized the square of the balancing
-and treated curtailment just as negative balancing. If you do this,
-however, an even distribution of curtailment is favored, leading to
-transport of power which is eventually shedded. This is why we treat
-curtailment and balancing separately, and this is also the reason why
-the quadratic parameter $P_R$ is set to zero.
-
-The cost of curtailment is instead accounted for in the linear
-term. Again, since no nodes or links are distinguished, it is chosen
-to look like
-\begin{align*}
-q=\left(
-\begin{matrix}
-q_F \\
-q_B \\
-q_R
-\end{matrix}
-\right)
-\end{align*}
-
-Next, we build the equality constraint matrix $A$. It should
-incorporate the DC power flow equation Eq. \eqref{eq:DC2}, which must
-now be modified to include balancing and curtailment. It should now
-express
-\begin{align*}
-\text{renewable generation}+
-\text{balancing}=\text{load}+\text{curtailment} + \text{net outflow}.
-\end{align*}
-Since load and generation are, in fact, our input parameters, they
-form the outer constraint on our system, and we have
-\begin{align*}
-(\text{renewable generation}-\text{load})_n=\Delta_n
-=\sum_l F_{ln}-B_n+R_n.
-\end{align*}
-This means that $A$ is given by
-\begin{align*}
-A=\left(
-\begin{matrix}
-K & -\mathbb{I}_{N\times N} & \mathbb{I}_{N\times N}.
-\end{matrix}
-\right)
-\end{align*}
-and $b=\Delta$ by the nodal mismatch of generation and load.
-
-Finally, the inequality constraints must follow the form $G x\leq
-h$. Remembering that flows are directed and that the link capacity
-can have different values in either direction, the flow component of
-the constraints must have the form
+For a network with unconstrained line capacities (``copper flow''),
+the DC power flow is then given as that set of flows $F_l$ that
+fulfills 
 \begin{align}
-\left(
-\begin{matrix}
-1 & 0 & \hdots \\
--1 & 0 & \hdots \\
-0 & 1  & \hdots \\
-0 & -1  & \hdots \\
-\vdots & \vdots & \ddots 
-\end{matrix}
-\right)
-\left(
-\begin{matrix}
-F_1 \\
-F_2 \\
-\vdots \\
-\vdots
-\end{matrix}
-\right)
-\leq
-\left(
-\begin{matrix}
-h_1 \\
-h_{-1} \\
-h_2 \\
-h_{-2}\\
-\vdots
-\end{matrix}
-\right),
-\label{eq:capc}
+\nonumber &KF=\Delta \qquad\qquad\quad\\
+\text{ and minimizes } &\sum_{l=1}^L F_l^2.
+\label{eq:minf}
 \end{align}
-where $h_l$ is the capacity flowing in the positive direction along
-link $l$ and $h_{-l}$ is the capacity flowing in the opposite
-direction, with $h_l, h_{-l} \geq 0$.
+Due to condition \eqref{eq:nomis}, the existence of such a solution is
+guaranteed, and the minimization \eqref{eq:minf} makes it unique. 
 
-Both the curtailment and the balancing are expressed in positive
-values, so that both have to limited with the condition that $B_n, R_n
-\geq 0$. This implies that the constraint G matrix in the
-balancing and section is defined as
-\begin{align}
--\mathbb{I} B \leq 0
-\label{eq:bal+}
-\end{align}
-
-For the curtailment, we have the additional constraint that there
-should be no transported curtailment at a node, i.e. it must be
-limited to the local excess power. Together with the positivity, this
-means for the curtailment part of $G$:
-\begin{align}
-\left(
-\begin{matrix}
-1 & 0 & \hdots \\
--1 & 0 & \hdots \\
-0 & 1  & \hdots \\
-0 & -1  & \hdots \\
-\vdots & \vdots & \ddots 
-\end{matrix}
-\right)
-\left(
-\begin{matrix}
-R_1 \\
-R_2 \\
-\vdots \\
-\vdots
-\end{matrix}
-\right)
-\leq
-\left(
-\begin{matrix}
-b_1 \\
-0 \\
-b_2 \\
-0\\
-\vdots
-\end{matrix}
-\right)
-\label{eq:cur+}
-\end{align}
-
-\section{Different balancing strategies}
-\label{sec:4}
-
-Given that our solution vector $x$ contains information about not only
-the flows, but also about the balancing and curtailment activities of
-each node, the optimization is not only minimizing the square of the
-flows, but also the mismatch correction at each node. The standard QP
-cost function
+Now we generalize this to the case where we have a global mismatch,
+which has to be compensated by balancing. The total balancing can be
+expressed as\footnote{$(x)_-=\max\{-x,0\}$ denotes the
+  negative part of a quantity $x$.}
 \begin{align*}
-C=xPx+qx
+B_{\rm tot}=\sum_{i=1}^N(\Delta_i-(K\cdot F)_i)_-=\sum_{i=1}^N B_i
 \end{align*}
-reads in detail
+The balancing need $B_i$ is what is potentially left of a negative
+mismatch $\Delta_i$ after it has been reduced by the net imports
+$-(K\cdot F)_i$. We use the flows to minimize $B_{\rm tot}$. In other
+words, we make the system use as much of the 
+renewable generation as possible. This is our top priority.
+
+As a secondary objective, we still want to minimize dissipation. We do
+so in a second step, where we minimize the flows keeping the total
+balancing at its minimal value found in the first step:
 \begin{align*}
-C=\sum_l \left[P_F F_l^2+ q_F F_l\right]
-+\sum_n \left[P_B B_n^2+ q_B B_n + P_R R_n^2 +q_R R_n\right]
+\min_{\sum_{i=1}^N (\Delta_i-(K\cdot F)_i)_- \leq B_{\rm min}}\sum_{l=1}^L F_l^2
 \end{align*}
-$P_F$ , $P_B$ and $P_R$ are the flow, balancing and curtailment
-prizing in the quadratic component of $C$ and $q_F$ , $q_B$ and $q_R$
-are linear ones. As we are interested in minimizing the square of the
-flows and not in minimizing the flow along any one link in
-particular, the linear cost of $F$ is set to zero ($q_F=0$). Likewise,
-since we don't want to minimize the square of the
-curtailment (as explained above), we set $P_R$ to zero as well. This
-leaves us with
+This ensures that we arrive at the minimal flows that make optimal
+sharing of renewables possible.
+
+If the line capacities are constrained by (possibly direction
+dependent) capacities, $h_{-l}\leq F_l\leq h_l$, these constraints are
+included in the two minimizations, and we have
 \begin{align*}
-C=\sum_l P_F F_l^2 +\sum_n \left[P_B B_n^2 +q_B B_n+q_R R_n \right]
+\text{Step 1: }&\qquad \:\:
+\min_{h_{-l}\leq F_l \leq h_l} \qquad \:\: 
+\sum_{i=1}^N(\Delta_i-(K\cdot F)_i)_- = B_{\rm min}\\
+\text{Step 2: }&
+\min_{\substack{h_{-l}\leq F_l \leq h_l \\ \sum_{i=1}^N (\Delta_i-(K\cdot F)_i)_-
+  \leq B_{\rm min}}} \sum_{l=1}^L F_l^2
 \end{align*}
-By adjusting the remaining parameters, we can motivate one kind of
-behavior over another. If, for instance, local balancing is cheaper
-than flows, countries will prefer to balance their own loads, even if
-their neighbors have excess power. Here, the parameters take different
-values, depending on which scenario we wish to model.
 
-\subsection{Weakly independent nodes}
+\section{Balancing, flow and storage calculation with \texttt{gurobi}}
 
-This models the case where the nodes have to do their own balancing,
-and receive no help from their neighbors apart from receiving their
-renewables. The rules to follow are (in descending priority):
-\begin{enumerate}
-\item Sharing of renewable surplus
-\item Own balancing
-\item Own curtailment
-\end{enumerate}
-To remove the motivation to share balancing, $P_B$ is set to zero. In
-order ensure that the renewable surplus is shared, the marginal cost
-of transmitting one unit of energy between any two nodes $i$ and $j$
-has to be lower than the marginal cost of producing it at the
-destination with balancing plus the cost of curtailing it at the
-origin. In other words 
-\begin{align}
-\frac{\partial C}{\partial F_{ij}} \stackrel{!}{<}
-\frac{\partial C}{\partial B_j} +\frac{\partial C}{\partial R_i}
-\label{eq:trans1}
-\end{align}
-which is in every case fulfilled if
-\begin{align*}
-2P_F ( N-1) \Delta_0 < q_B + q_R,
-\end{align*}
-where the term $(N-1)\Delta_0$ represents the largest possible flow in
-the network, built from the largest amount of mismatch $\Delta_0$
-transferred at a given time and the maximum number of links that this flow
-could travel through. In the quadratic parameters, we usually set $P_F
-=1$. Theoretically, it shouldn't matter how $q_B$ and $q_R$ are chosen
-in order to satisfy the inequality, as any balancing will automatically
-imply curtailment if transfer could have been an option. To play
-safe, we set both of them equal to the left side of the inequality.
+...comes as soon as I understand it.
 
-\subsection{Weakly dependent nodes}
+\section{Other tested implementations}
 
-This models the case where nodes share the balancing duties whenever
-there is a global negative mismatch, as opposed to leaving the
-countries with a negative mismatch to balance it alone. While the total
-balancing energy used will be the same in both cases, the total
-balancing power installed in Europe will be lower in this case (though
-perhaps higher for an individual, stable node than it would be in an
-uncooperative scenario). The set of
-rules is then
-\begin{enumerate}
-\item Sharing of renewable surplus
-\item Sharing of balancing
-\item Own balancing
-\item Own curtailment
-\end{enumerate}
-In this scenario, we wish to reduce the
-square of the balancing required in total, so that two countries
-balancing a mismatch $M/2$ is preferable to a single one balancing
-$M$. This implies bringing back the quadratic term $P_B$. The
-condition that flow must be cheaper than balancing still holds, so the
-inequality in \eqref{eq:trans1} still applies to this case. In
-addition, we want to arrange it so that marginal cost of balancing at a
-node $i$ which is already doing a large amount of balancing is higher
-than the marginal cost of producing and bringing balancing from a less
-used node $j$. That is
-\begin{align*}
-\frac{\partial C}{\partial B_i} 
-&> \frac{\partial C}{\partial B_j}+\frac{\partial C}{\partial F_{ij}}\\
-\text{where } \frac{\partial C}{\partial B_i}&=2P_B B_i +q_B \\
-\text{and } \frac{\partial C}{\partial B_j}+\frac{\partial C}{\partial F_{ij}}
-&=2P_B B_j +q_B+\sum_l  2P_F\Delta_0 \leq 2P_BB_j+q_B +2P_F(N-1)\Delta_0
-\end{align*}
-where, again, $(N-1)\Delta_0$ represents the maximal transferable
-mismatch along the longest possible route. This inequality can
-be simplified to
-\begin{align}
-\nonumber 2P_B B_i+q_B &> 2P_B B_j+q_B +2P_F( N-1)\Delta_0\\
-\Leftrightarrow
-P_B & > \frac{( N-1) P_F\Delta_0}{ B_i - B_j}
-\label{eq:bals}
-\end{align}
-This means that, the more uneven the current balancing productions
-between nodes $i$ and $j$ are, the (relatively) cheaper it will be to
-transport power from $j$ to $i$ in comparison to balancing at
-$i$. This term explodes as the balancing production in the two nodes
-equals out, and $B_i=B_j$, so some tolerance level must be
-introduced. We set this to $\Delta B=B_i - B_j\approx 1\rm\,MW$, and
-then set $P_B$ accordingly.
+\texttt{CPLEX} -- commercial, apparently a predecessor of gurobi,
+slower
 
-We found that ensuring that inequality \eqref{eq:trans1} holds makes
-the system behave as a weakly independent grid, and by further
-asserting inequality \eqref{eq:bals}, we can make the system behave as
-a weakly dependent grid.
+\texttt{cvxopt} -- python-internal module, easy, but very slow. In
+addition, defining a hierarchy of goal just by giving the higher
+priority cost function a higher prefactor wasn't such a good idea --
+in the end, the routine just ignored the secondary targets because
+their influence on the cost function was too low.
+
+% \section{Implementing balancing and curtailment}
+% \label{sec:3}
+
+% The quadratic programming solver \texttt{CVXOPT} (from ConVeX
+% OPTimisation) requires the information to be stored in a specifically
+% shaped matrices. The form and values of these matrices help define the
+% scenario and problem that one wants to optimize. The standard format of
+% a quadratic programming problem is
+% \begin{align}
+% C&=x P x+q x \text{ -- the cost function to be minimized}
+% \label{eq:cost} \\
+% A x&=b \text{ -- the equality constraint}
+% \label{eq:eq}\\
+% G x &\leq h \text{ -- the inequality constraint}
+% \label{eq:ieq}
+% \end{align}
+% where $x$ is the variable that is varied and the other entities are
+% parameters of the specific problem (don't confuse the cost matrix $P$
+% with the power we talked about earlier!). In our case,
+% $x$ does not only consist of the flows $F_l$, but we also want to
+% minimize balancing $B_n$ and curtailment $R_n$ at each node. This
+% means that our $x$ looks like
+% \begin{align*}
+% x=\left(\begin{matrix}
+% F_1\\
+% \vdots\\
+% F_L\\
+% B_1\\
+% \vdots\\
+% B_N\\
+% R_1\\
+% \vdots\\
+% R_N
+% \end{matrix}
+% \right)
+% \end{align*}
+
+% Let's first take a look at the cost function. The quadratic parameter
+% $P$ is a $(L+2N)\times(L+2N)$ matrix. It is simply chosen to be
+% diagonal, since there is no distinguished link or node in the network
+% and we do not want to introduce any ``synergy effects'' between flows,
+% balancing and curtailment. We thus have:
+% \begin{align*}
+% P=\left(
+% \begin{matrix}
+% P_F & 0 & 0 \\
+% 0 & P_B & 0 \\
+% 0 & 0 & P_R
+% \end{matrix}
+% \right)
+% \end{align*}
+% Upon examination, we found that in Dominik Heide's code, curtailment is
+% often shared between nodes. That is, in the event of a global positive
+% mismatch where node $i$ has an overproduction of $R$ and node $j$ is
+% perfectly balanced, Dominik's algorithm will have node $i$ export some
+% of its overproduction to node $j$, and both will curtail amounts
+% $0.5\cdot R$. This behavior is of course not desired since it leads to
+% additional flows which are completely superfluous. The reason for
+% these results is that Dominik minimized the square of the balancing
+% and treated curtailment just as negative balancing. If you do this,
+% however, an even distribution of curtailment is favored, leading to
+% transport of power which is eventually shedded. This is why we treat
+% curtailment and balancing separately, and this is also the reason why
+% the quadratic parameter $P_R$ is set to zero.
+
+% The cost of curtailment is instead accounted for in the linear
+% term. Again, since no nodes or links are distinguished, it is chosen
+% to look like
+% \begin{align*}
+% q=\left(
+% \begin{matrix}
+% q_F \\
+% q_B \\
+% q_R
+% \end{matrix}
+% \right)
+% \end{align*}
+
+% Next, we build the equality constraint matrix $A$. It should
+% incorporate the DC power flow equation Eq. \eqref{eq:DC2}, which must
+% now be modified to include balancing and curtailment. It should now
+% express
+% \begin{align*}
+% \text{renewable generation}+
+% \text{balancing}=\text{load}+\text{curtailment} + \text{net outflow}.
+% \end{align*}
+% Since load and generation are, in fact, our input parameters, they
+% form the outer constraint on our system, and we have
+% \begin{align*}
+% (\text{renewable generation}-\text{load})_n=\Delta_n
+% =\sum_l F_{ln}-B_n+R_n.
+% \end{align*}
+% This means that $A$ is given by
+% \begin{align*}
+% A=\left(
+% \begin{matrix}
+% K & -\mathbb{I}_{N\times N} & \mathbb{I}_{N\times N}.
+% \end{matrix}
+% \right)
+% \end{align*}
+% and $b=\Delta$ by the nodal mismatch of generation and load.
+
+% Finally, the inequality constraints must follow the form $G x\leq
+% h$. Remembering that flows are directed and that the link capacity
+% can have different values in either direction, the flow component of
+% the constraints must have the form
+% \begin{align}
+% \left(
+% \begin{matrix}
+% 1 & 0 & \hdots \\
+% -1 & 0 & \hdots \\
+% 0 & 1  & \hdots \\
+% 0 & -1  & \hdots \\
+% \vdots & \vdots & \ddots 
+% \end{matrix}
+% \right)
+% \left(
+% \begin{matrix}
+% F_1 \\
+% F_2 \\
+% \vdots \\
+% \vdots
+% \end{matrix}
+% \right)
+% \leq
+% \left(
+% \begin{matrix}
+% h_1 \\
+% h_{-1} \\
+% h_2 \\
+% h_{-2}\\
+% \vdots
+% \end{matrix}
+% \right),
+% \label{eq:capc}
+% \end{align}
+% where $h_l$ is the capacity flowing in the positive direction along
+% link $l$ and $h_{-l}$ is the capacity flowing in the opposite
+% direction, with $h_l, h_{-l} \geq 0$.
+
+% Both the curtailment and the balancing are expressed in positive
+% values, so that both have to limited with the condition that $B_n, R_n
+% \geq 0$. This implies that the constraint G matrix in the
+% balancing and section is defined as
+% \begin{align}
+% -\mathbb{I} B \leq 0
+% \label{eq:bal+}
+% \end{align}
+
+% For the curtailment, we have the additional constraint that there
+% should be no transported curtailment at a node, i.e. it must be
+% limited to the local excess power. Together with the positivity, this
+% means for the curtailment part of $G$:
+% \begin{align}
+% \left(
+% \begin{matrix}
+% 1 & 0 & \hdots \\
+% -1 & 0 & \hdots \\
+% 0 & 1  & \hdots \\
+% 0 & -1  & \hdots \\
+% \vdots & \vdots & \ddots 
+% \end{matrix}
+% \right)
+% \left(
+% \begin{matrix}
+% R_1 \\
+% R_2 \\
+% \vdots \\
+% \vdots
+% \end{matrix}
+% \right)
+% \leq
+% \left(
+% \begin{matrix}
+% b_1 \\
+% 0 \\
+% b_2 \\
+% 0\\
+% \vdots
+% \end{matrix}
+% \right)
+% \label{eq:cur+}
+% \end{align}
+
+% \section{Different balancing strategies}
+% \label{sec:4}
+
+% Given that our solution vector $x$ contains information about not only
+% the flows, but also about the balancing and curtailment activities of
+% each node, the optimization is not only minimizing the square of the
+% flows, but also the mismatch correction at each node. The standard QP
+% cost function
+% \begin{align*}
+% C=xPx+qx
+% \end{align*}
+% reads in detail
+% \begin{align*}
+% C=\sum_l \left[P_F F_l^2+ q_F F_l\right]
+% +\sum_n \left[P_B B_n^2+ q_B B_n + P_R R_n^2 +q_R R_n\right]
+% \end{align*}
+% $P_F$ , $P_B$ and $P_R$ are the flow, balancing and curtailment
+% prizing in the quadratic component of $C$ and $q_F$ , $q_B$ and $q_R$
+% are linear ones. As we are interested in minimizing the square of the
+% flows and not in minimizing the flow along any one link in
+% particular, the linear cost of $F$ is set to zero ($q_F=0$). Likewise,
+% since we don't want to minimize the square of the
+% curtailment (as explained above), we set $P_R$ to zero as well. This
+% leaves us with
+% \begin{align*}
+% C=\sum_l P_F F_l^2 +\sum_n \left[P_B B_n^2 +q_B B_n+q_R R_n \right]
+% \end{align*}
+% By adjusting the remaining parameters, we can motivate one kind of
+% behavior over another. If, for instance, local balancing is cheaper
+% than flows, countries will prefer to balance their own loads, even if
+% their neighbors have excess power. Here, the parameters take different
+% values, depending on which scenario we wish to model.
+
+% \subsection{Weakly independent nodes}
+
+% This models the case where the nodes have to do their own balancing,
+% and receive no help from their neighbors apart from receiving their
+% renewables. The rules to follow are (in descending priority):
+% \begin{enumerate}
+% \item Sharing of renewable surplus
+% \item Own balancing
+% \item Own curtailment
+% \end{enumerate}
+% To remove the motivation to share balancing, $P_B$ is set to zero. In
+% order ensure that the renewable surplus is shared, the marginal cost
+% of transmitting one unit of energy between any two nodes $i$ and $j$
+% has to be lower than the marginal cost of producing it at the
+% destination with balancing plus the cost of curtailing it at the
+% origin. In other words 
+% \begin{align}
+% \frac{\partial C}{\partial F_{ij}} \stackrel{!}{<}
+% \frac{\partial C}{\partial B_j} +\frac{\partial C}{\partial R_i}
+% \label{eq:trans1}
+% \end{align}
+% which is in every case fulfilled if
+% \begin{align*}
+% 2P_F ( N-1) \Delta_0 < q_B + q_R,
+% \end{align*}
+% where the term $(N-1)\Delta_0$ represents the largest possible flow in
+% the network, built from the largest amount of mismatch $\Delta_0$
+% transferred at a given time and the maximum number of links that this flow
+% could travel through. In the quadratic parameters, we usually set $P_F
+% =1$. Theoretically, it shouldn't matter how $q_B$ and $q_R$ are chosen
+% in order to satisfy the inequality, as any balancing will automatically
+% imply curtailment if transfer could have been an option. To play
+% safe, we set both of them equal to the left side of the inequality.
+
+% \subsection{Weakly dependent nodes}
+
+% This models the case where nodes share the balancing duties whenever
+% there is a global negative mismatch, as opposed to leaving the
+% countries with a negative mismatch to balance it alone. While the total
+% balancing energy used will be the same in both cases, the total
+% balancing power installed in Europe will be lower in this case (though
+% perhaps higher for an individual, stable node than it would be in an
+% uncooperative scenario). The set of
+% rules is then
+% \begin{enumerate}
+% \item Sharing of renewable surplus
+% \item Sharing of balancing
+% \item Own balancing
+% \item Own curtailment
+% \end{enumerate}
+% In this scenario, we wish to reduce the
+% square of the balancing required in total, so that two countries
+% balancing a mismatch $M/2$ is preferable to a single one balancing
+% $M$. This implies bringing back the quadratic term $P_B$. The
+% condition that flow must be cheaper than balancing still holds, so the
+% inequality in \eqref{eq:trans1} still applies to this case. In
+% addition, we want to arrange it so that marginal cost of balancing at a
+% node $i$ which is already doing a large amount of balancing is higher
+% than the marginal cost of producing and bringing balancing from a less
+% used node $j$. That is
+% \begin{align*}
+% \frac{\partial C}{\partial B_i} 
+% &> \frac{\partial C}{\partial B_j}+\frac{\partial C}{\partial F_{ij}}\\
+% \text{where } \frac{\partial C}{\partial B_i}&=2P_B B_i +q_B \\
+% \text{and } \frac{\partial C}{\partial B_j}+\frac{\partial C}{\partial F_{ij}}
+% &=2P_B B_j +q_B+\sum_l  2P_F\Delta_0 \leq 2P_BB_j+q_B +2P_F(N-1)\Delta_0
+% \end{align*}
+% where, again, $(N-1)\Delta_0$ represents the maximal transferable
+% mismatch along the longest possible route. This inequality can
+% be simplified to
+% \begin{align}
+% \nonumber 2P_B B_i+q_B &> 2P_B B_j+q_B +2P_F( N-1)\Delta_0\\
+% \Leftrightarrow
+% P_B & > \frac{( N-1) P_F\Delta_0}{ B_i - B_j}
+% \label{eq:bals}
+% \end{align}
+% This means that, the more uneven the current balancing productions
+% between nodes $i$ and $j$ are, the (relatively) cheaper it will be to
+% transport power from $j$ to $i$ in comparison to balancing at
+% $i$. This term explodes as the balancing production in the two nodes
+% equals out, and $B_i=B_j$, so some tolerance level must be
+% introduced. We set this to $\Delta B=B_i - B_j\approx 1\rm\,MW$, and
+% then set $P_B$ accordingly.
+
+% We found that ensuring that inequality \eqref{eq:trans1} holds makes
+% the system behave as a weakly independent grid, and by further
+% asserting inequality \eqref{eq:bals}, we can make the system behave as
+% a weakly dependent grid.
 
 \section{Code walk-through and instructions}
 
@@ -590,20 +669,40 @@ the database by typing
 
 \noindent \texttt{ssh -L5432:localhost:5432 USERNAME@pepsi.imf.au.dk}
 
-\noindent into your terminal.
+\noindent into your terminal. Note that due to a brute force attack on
+the server, it was necessary to switch off the password identification
+when you login from a computer outside the Aarhus mathematics institute
+(IMF). You have to generate an ssh key pair, e.g. by running
+
+\noindent \texttt{ssh-keygen -t rsa -b 4096}
+
+and put the public key on pepsi with
+
+\noindent \texttt{scp ~/.ssh/id\_rsa.pub
+  <username>@pepsi.imf.au.dk:.ssh/authorized\_keys}
+
+\noindent (obviously, you have to do so from a computer which can
+still reach pepsi by password). Note that this overwrites any existing
+authorized keys. You can optionally specify a passphrase for your
+private key. Your (local) private key \texttt{~/.ssh/id\_rsa} is then required
+to log in, so copy it to any other computers you need to ssh to pepsi
+from.
 
 The code is written in
 Python and requires a number of modules to be installed for proper
 execution. These are: \texttt{numpy}, \texttt{sqlalchemy},
 \texttt{psycopg2}, \texttt{cvxopt}, \texttt{pylab},
 \texttt{matplotlib}, and \texttt{scipy}. Additionally, the group has
-been working under \texttt{ipython}, which greatly simplifies the
-process of running scripts. 
+been working under \texttt{ipython}, which somewhat simplifies the
+process of running scripts. This makes tests easier, but slows python
+down a bit and there is a known memory leak when generating a lot of
+histograms, what we actually do (see
+\url{http://old.nabble.com/memory-usage-%28leakage-%29-in-ipython-interactive-mode}
+\url{-td22345056.html}). So don't use it generally.
 
 First, you need to fetch the data you need from the server. You will
 find the necessary functions for this in the file
-\texttt{datamgmt.py}, which in turn calls functions from
-\texttt{Database\_v1.py}. There you find for example the function 
+\texttt{Database\_v2.py}. There you find for example the function 
 \texttt{get\_ISET\_country\_data}, which can be used to load data
 (wind and solar energy generation, load etc.) of a specific
 country. It first attempts to access the data locally by looking for a
@@ -619,7 +718,7 @@ found in \texttt{zdcpf.py}. To execute, it needs additional input data
 in a folder which is by default called \texttt{settings}:
 \texttt{admat.txt}, in which the line capacities 
 between the European countries are listed as a matrix (data from
-DONG), and \texttt{ISET2ISO\_country\_codes.npy}, which is a binary
+ENTSO-E), and \texttt{ISET2ISO\_country\_codes.npy}, which is a binary
 file that contains the mapping of the ISET and ISO country codes to
 each other.
 
@@ -651,77 +750,37 @@ For convenience, there is also a class \texttt{Nodes}, which holds the
 set of all nodes in a specific calculation. Its default behavior is to
 include all European nodes upon construction.
 
-Next in the script, we meet the second most important element, the
-\texttt{generatemat()} function, which generates the
-matrices needed for the QP solver, \texttt{cvxopt}. 
-
-First it calls the function \texttt{AtoKh}, which generates the
-incidence matrix $K$ and the 
-flow capacity vector $h$ (as of today) from the data in
-\texttt{admat.txt}. Note that, as cvxopt requires linear independence
-in the equality constraint matrix, the first line in $K$ represents a
-dummy node, connected only to the first real node (Norway, in this
-case). The node setup may be changed by changing the
-\texttt{admat.txt} file. Note, however, that you still must provide a
-data file for the each node and add it to the list of nodes in the
-script, or else the code will fail.
-
-The further matrices are generated based on the incidence matrix K and
-the constraints vector h. The first matrix produced
-is the diagonal $P$ matrix as described in Eq. \eqref{eq:cost},
-consisting of a series of elements $P_F$, $P_B$, and $P_R$,
-corresponding to the flow, balancing and curtailment variables. 
-
-As said in the previous section, the default value for $P_F$ is $1$,
-and although $P_B$ may take other values, it is initially set,
-together with $P_R$, to zero, or, to be precise, as cvxopt does not
-allow for linearly dependent matrices, the values are set instead to
-very small. Next, the $q$ vector for the linear terms, is generated by
-a number of zeroes equal to the number of variables. The values of
-$q_B$ and $q_R$ can then be individually modified later on. The equality
-constraints matrix $A$ is then built as explained in the previous
-section. To keep the linear independence, the first row is eliminated,
-corresponding to the dummy node. The right hand side of the equation,
-the mismatch vector $b$, will be determined later on depending on the
-local mismatches. As explained in section \ref{sec:3}, the inequality
-constraint matrix $G$ has a different size, shape and construction,
-according to the different parts of the solution – namely equations
-\eqref{eq:capc}, \eqref{eq:bal+}, and \eqref{eq:cur+}. We assemble G
-in this way as a block-diagonal matrix by setting in first
-the constraints on flows, then balancing and finally
-curtailment. At last, the inequality vector $h$ is built based
-on the transmission capacities, and also leaving space for the
-variable constraints required by \eqref{eq:cur+}. Finally, the function 
+Next in the script, we meet the function \texttt{AtoKh}, which
+generates the incidence matrix $K$ and the flow capacity vector $h$
+(as of today) from the data in \texttt{admat.txt}. The node setup may
+be changed by changing the \texttt{admat.txt} file. Note, however,
+that you still must provide a data file for the each node and add it
+to the list of nodes in the script, or else the code will fail.
 
 \noindent
-\texttt{N, F, lF = zdcpf(Nodes,admat,path\_to\_admat,coop,copper,lapse,b,h)}
+\texttt{F = sdcpf(Nodes,admat,path\_to\_admat,copper,lapse,b,h)}
 
 executes the actual calculations for each point in the time
 series. The function receives Nodes, which is an instance of the
 \texttt{Nodes} class, the name of the admat file as well as its
-location, \texttt{coop} which is a switch which decides whether
-balancing is shared (see Sec. \ref{sec:4}), \texttt{copper} which is a
+location, \texttt{copper} which is a
 switch to turn Europe into a copper plate, i.e. consider the
 transmission capacities as unlimited, \texttt{lapse} which is the
-number of time steps to consider, an artificial mismatch vector $b$
-(defaults to the actual mismatch) and a line capacity constraint
-vector $h$ (defaults to today's capacities). It returns a set of Nodes
-\texttt{N}, which now contains the balancing and curtailment
-time series, as well as a list of flows \texttt{F} and a list of flow
-names \texttt{lF} to facilitate the mapping from the flow vector to
-the two countries which are linked by the flow.
-
+number of time steps to consider, \texttt{b}, the scaling factor for
+the line capacities (default is one), and a line capacity constraint
+vector $h$ (defaults to today's capacities). It modifies the Nodes to
+contain the balancing and curtailment as calculated and returns the
+list of flows \texttt{F}.
 With these building blocks, one can simulate a series of scenarios,
 create loops that cycle through different $\alpha$ or $\gamma$ values,
-or constraints, or all. The bottom half of the script is devoted to
-plotting functions, in order to better visualize the results. 
+or constraints, or all.
 
 While this guide is not an user's guide, and does not aim at giving a
 full explanation of every line, we outline a simple example. One would,
 after opening an ssh tunnel to Pepsi, open ipython and cd to the
 directory where all the files are stored, then type
 
-\noindent \texttt{\%run datamgmt.py \\
+\noindent \texttt{\%run Database\_v2.py \\
 get\_ISET\_country\_data('DK')
 }
 
@@ -745,14 +804,13 @@ interested is. For example, to sweep over various $\gamma$ values, one
 could type 
 
 \noindent \texttt{N=Nodes()\\
-ResNodes = Nodes()\\
 gammas=[0.25,0.5,0.75]\\
 for i in range(len(gammas)):\\
 }
 \indent
 \texttt{N.setgammas(N,gammas[i])}\\
 \indent
-\texttt{ResNodes, ResFlows, lF = zdcpf(N)}
+\texttt{F = zdcpf(N)}
 
 Note that each iteration overwrites the previous 70128 points in the
 Nodes and F variables, and so they must be saved at every
