@@ -1738,15 +1738,23 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
     # linecap = ['0.40Q','today','balred_0.90']
     # lbl = ['original mismatch','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction line capacities']
     # cl = ['#490A3D','#E97F02','#8A9B0F'] # by sugar (CL)
+    # linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
+    # lbl = ['original mismatch','line capacities as of today',r'70$\,$% bal. reduction line capacities',r'90$\,$% bal. reduction line capacities','copper plate']
+    # cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
+    linecap = ['0.40Q','today','balred_0.90']
+    lbl = ['load','mismatch before sharing renewables','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction line capacities']
+    cl = ['#490A3D','#BD1550','#E97F02','#8A9B0F'] # by sugar (CL)
+
     bns=np.arange(-2.,4.01,0.01) # the bins for the histograms
     gamma_vs_year=array(get_gamma_vs_year(step=step)) # average gamma
 
-    linecap = ['0.40Q','today','balred_0.70','balred_0.90','copper']
-    lbl = ['original mismatch','line capacities as of today',r'70$\,$% bal. reduction line capacities',r'90$\,$% bal. reduction line capacities','copper plate']
-    cl = ['#490A3D','#BD1550','#E97F02','#F8CA00','#8A9B0F'] # by sugar (CL)
 
     for year in years:
         mismatch = []
+        N = Nodes()
+        mism = [-n.load/n.mean for n in N]
+        del N
+        mismatch.append(mism)
         ISO = []
         for lc in linecap:
             fname = 'logfit_gamma_year_{0}'.format(year)
@@ -1767,6 +1775,11 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
             ax = fig.add_subplot(111)
             ax.grid(True)
             j = 0
+            xx = mismatch[j][i][:]
+            ax.hist(xx,color=cl[j],bins=bns,histtype='step',align='mid')
+            ax.plot([],[],color=cl[j],label=lbl[j]) # get the legend right
+            # get 99% quantile and plot it as vertical line
+            j += 1
             for lc in linecap:
                 # if j>1: continue
                 xx = mismatch[j][i][:]
@@ -1774,8 +1787,8 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
                 ax.plot([],[],color=cl[j],label=lbl[j])
                 j += 1
             tlte = ISO2name(ISO=iso)+', reference year {0}\n'.format(year)
-            tlte += r'$\gamma_{\rm \,'+iso+'}={0:.2f}$, '.format(gamma_country[i])
-            tlte += r'$\gamma_{\rm \, avg}={0:.2f}$'.format(gamma_vs_year[year-1990])
+            tlte += r'$\gamma_{\rm \,'+iso+r'}'+'={0:.2f}$, '.format(gamma_country[i])
+            tlte += r'$\gamma_{\rm \, avg}=$'+'{0:.2f}'.format(gamma_vs_year[year-1990])
             leg = legend(title=tlte)
             ltext  = leg.get_texts();
             setp(ltext, fontsize='small')    # the legend text fontsize
