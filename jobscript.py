@@ -712,7 +712,17 @@ def get_curtailment_and_excess(path='./results/',datpath='./data/',step=2,lineca
     return
 
 
-def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,linecap='copper',capped_inv=True):
+def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',country='DK',step=2,linecap='copper',capped_inv=True):
+
+    lc = linecap
+    if (not 'balred' in linecap): lc = 'linecap_'+linecap
+    outfile = 'balancing_quantiles_{0}_step_{1}_{2}'.format(lc,step,country)
+    if ('balred' in linecap and capped_inv):
+        outfile += '_capped_investment'
+    outfile += '.npy'
+    if (os.path.exists(path+outfile)):
+        return np.load(path+outfile)
+    
     ISO = ['AT', 'FI', 'NL', 'BA', 'FR', 'NO', 'BE', 'GB', 'PL', 'BG', 'GR', 'PT',
            'CH', 'HR', 'RO', 'CZ', 'HU', 'RS', 'DE', 'IE', 'SE', 'DK', 'IT', 'SI',
            'ES', 'LU', 'SK']
@@ -730,8 +740,7 @@ def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,l
         fname += '_nodes.npz'
         N = Nodes(load_filename=fname)
         for n in N:
-            load=n.mean*n.nhours
-            bal = n.balancing/load
+            bal = n.balancing/n.mean
             hst = hist(bal,cumulative=True,bins=500,normed=True)
             for i in range(len(quant)):
                 for j in range(len(hst[0])):
@@ -753,6 +762,31 @@ def get_balancing_quantiles_vs_year(path='./results/',datpath='./data/',step=2,l
             outfile += '_capped_investment'
         outfile += '.npy'
         np.save(path+outfile,bal_quant[:,i,:])
+        i += 1
+    return
+
+
+def get_load_quantiles(path='./results/'):
+    quant=[0.9,0.99,1.]
+    N = Nodes()
+    ISO = ['{0}'.format(n.label) for n in N]
+    load_quant = np.zeros((len(ISO),len(quant)))
+    for n in N:
+        load = n.load/n.mean
+        hst = hist(load,cumulative=True,bins=500,normed=True)
+        for i in range(len(quant)):
+            for j in range(len(hst[0])):
+                if hst[0][j]>=quant[i]:
+                    load_quant[n.id,i]=hst[1][j]
+                    break
+            if j == len(hst[0]) - 1:
+                load_quant[n.id,i]=max(hst[1][:])
+        clf()
+    del N
+    i=0
+    for iso in ISO:
+        outfile = 'load_quantiles_{0}'.format(iso)
+        np.save(path+outfile,load_quant[i,:])
         i += 1
     return
 
@@ -792,6 +826,70 @@ def collect_line_capacities_latex(path='./results/',years=[2020,2030,2040,2050],
             for k in range(len(years)):
                 outstr += ' & {0}'.format(int(round(cap[i,k,j],-1)))
         print outstr+r' \\'
+
+
+def collect_balancing_quantiles_latex(path='./results/',years=[2030,2050],linecap=['0.40Q','today','balred_0.90'],quant=[0.99],step=2):
+    # ISOs
+    N = Nodes()
+    ISO = ['{0}'.format(n.label) for n in N]
+    del N
+    # load quantiles
+    lq = np.zeros((len(ISO),len(quant)))
+    i = 0
+    for iso in ISO:
+        filename = 'load_quantiles_{0}'.format(iso) + '.npy'
+        j = 0
+        loqu = np.load(path+filename)
+        for q in quant:
+            if (q == 0.9):
+                lq[i,j] = loqu[0]
+                j += 1
+            elif (q == 0.99):
+                lq[i,j] = loqu[1]
+                j += 1
+            elif (q == 1.):
+                lq[i,j] = loqu[2]
+                j += 1
+            else:
+                print 'quantile {0} not available.'.format(q)
+                return    
+        i += 1
+    # linecap balancing quantiles
+    oq = np.zeros((len(years),len(ISO),len(quant),len(linecap)))
+    i = 0
+    for lc in linecap:
+        j = 0
+        for iso in ISO:
+            bq = get_balancing_quantiles_vs_year(country=iso,linecap=lc)
+            l = 0
+            for year in years:
+                k = 0
+                for q in quant:
+                    if (q == 0.9):
+                        oq[l,j,k,i] = bq[year-1990,0]
+                        k += 1
+                    elif (q == 0.99):
+                        oq[l,j,k,i] = bq[year-1990,1]
+                        k += 1
+                    elif (q == 1.):
+                        oq[l,j,k,i] = bq[year-1990,2]
+                        k += 1
+                    else:
+                        print 'quantile {0} not available.'.format(q)
+                        return
+                l += 1
+            j += 1
+        i += 1
+    for i in range(len(ISO)):
+        outstr = '{0}'.format(ISO[i])
+        for j in range(len(quant)):
+            outstr += ' & {0:.3f}'.format(lq[i,j])
+        for k in range(len(linecap)):
+            for l in range(len(years)):
+                for j in range(len(quant)):
+                    outstr += ' & {0:.3f}'.format(oq[l,i,j,k])
+        print outstr+r' \\'
+
 
 ######################################################
 ########### Plot the results #########################
@@ -1733,7 +1831,7 @@ def plot_flows_vs_scenario(path='./results/',year=2035,step=2,capped_inv=True):
     return
 
 
-def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,yearmin=2010,yearmax=2050,capped_inv=True):
+def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,yearmin=2010,yearmax=2050,capped_inv=True,print_gamma=True):
     years = np.arange(yearmin,yearmax+1,5)
     # linecap = ['0.40Q','today','balred_0.90']
     # lbl = ['original mismatch','mismatch after sharing, line capacities as of today',r'mismatch after sharing, 90$\,$% bal. reduction line capacities']
@@ -1775,21 +1873,41 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
             ax = fig.add_subplot(111)
             ax.grid(True)
             j = 0
+            pp = []
             xx = mismatch[j][i][:]
             ax.hist(xx,color=cl[j],bins=bns,histtype='step',align='mid')
-            ax.plot([],[],color=cl[j],label=lbl[j]) # get the legend right
+            pp_ = ax.plot([],[],color=cl[j],label=lbl[j]) # get the legend right
+            pp.append(pp_)
             # get 99% quantile and plot it as vertical line
+            fig47=figure(47); plt.clf()
+            ax47=fig47.add_subplot(111)
+            a=ax47.hist(xx,cumulative=True,bins=500,normed=True)
+            for k in range(len(a[0])-1,-1,-1):
+                if (a[0][k]<=0.01):
+                    quant=a[1][k]
+                    break
+            ax.axvline(x=quant,ymin=0,ymax=2000,color=cl[j],ls='--')
             j += 1
             for lc in linecap:
                 # if j>1: continue
                 xx = mismatch[j][i][:]
                 ax.hist(xx,color=cl[j],bins=bns,histtype='step',align='mid')
-                ax.plot([],[],color=cl[j],label=lbl[j])
+                pp_ = ax.plot([],[],color=cl[j],label=lbl[j])
+                pp.append(pp_)
+                fig47=figure(47); plt.clf()
+                ax47=fig47.add_subplot(111)
+                a=ax47.hist(xx,cumulative=True,bins=500,normed=True)
+                for k in range(len(a[0])-1,-1,-1):
+                    if (a[0][k]<=0.01):
+                        quant=a[1][k]
+                        break
+                ax.axvline(x=quant,ymin=0,ymax=2000,color=cl[j],ls='--')
                 j += 1
-            tlte = ISO2name(ISO=iso)+', reference year {0}\n'.format(year)
-            tlte += r'$\gamma_{\rm \,'+iso+r'}'+'={0:.2f}$, '.format(gamma_country[i])
-            tlte += r'$\gamma_{\rm \, avg}=$'+'{0:.2f}'.format(gamma_vs_year[year-1990])
-            leg = legend(title=tlte)
+            tlte = ISO2name(ISO=iso)+', reference year {0}'.format(year)
+            if (print_gamma):
+                tlte += '\n'+r'$\gamma_{\rm \,'+iso+r'}'+'={0:.2f}$, '.format(gamma_country[i])
+                tlte += r'$\gamma_{\rm \, avg}=$'+'{0:.2f}'.format(gamma_vs_year[year-1990])
+            leg = ax.legend(title=tlte)
             ltext  = leg.get_texts();
             setp(ltext, fontsize='small')    # the legend text fontsize
             ax.axis(xmin=-2.0,xmax=4.0,ymin=0,ymax=2000)
@@ -1798,8 +1916,8 @@ def plot_mismatch_distributions(path='./results/',figpath='./figures/',step=2,ye
             filename = 'mismatch_distribution_year_{0}_step_{1}_{2}'.format(year,step,iso)
             if capped_inv: filename += '_capped_investment'
             filename += '.pdf'
-            gcf().set_size_inches([9*1.5,3*1.75]) 
-            save_figure(filename)
+            fig.set_size_inches([9*1.5,3*1.75]) 
+            save_figure(filename,1)
             i += 1
     return
     
