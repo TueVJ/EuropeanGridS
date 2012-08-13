@@ -828,10 +828,11 @@ def collect_line_capacities_latex(path='./results/',years=[2020,2030,2040,2050],
         print outstr+r' \\'
 
 
-def collect_balancing_quantiles_latex(path='./results/',years=[2030,2050],linecap=['0.40Q','today','balred_0.90'],quant=[0.99],step=2):
+def collect_balancing_quantiles_latex(path='./results/',years=[2030,2050],linecap=['0.40Q','today','balred_0.70','balred_0.90'],quant=[0.99],step=2):
     # ISOs
     N = Nodes()
     ISO = ['{0}'.format(n.label) for n in N]
+    nhours = N[0].nhours
     del N
     # load quantiles
     lq = np.zeros((len(ISO),len(quant)))
@@ -860,7 +861,7 @@ def collect_balancing_quantiles_latex(path='./results/',years=[2030,2050],lineca
     for lc in linecap:
         j = 0
         for iso in ISO:
-            bq = get_balancing_quantiles_vs_year(country=iso,linecap=lc)
+            bq = get_balancing_quantiles_vs_year(country=iso,linecap=lc)*nhours # quick and dirty fix for my wrong normalization in get_balancing_quantiles_vs_year
             l = 0
             for year in years:
                 k = 0
@@ -889,6 +890,26 @@ def collect_balancing_quantiles_latex(path='./results/',years=[2030,2050],lineca
                 for j in range(len(quant)):
                     outstr += ' & {0:.3f}'.format(oq[l,i,j,k])
         print outstr+r' \\'
+
+
+def collect_logistic_growth_latex(step=2,years=[2020,2030,2040,2045,2050]):
+    N = Nodes()
+    ISO = ['{0}'.format(n.label) for n in N]
+    del N
+    gammas = np.zeros((len(ISO),len(years)))
+    alphas = np.zeros((len(ISO),len(years)))
+    i = 0
+    for year in years:
+        gammas[:,i] = get_basepath_gamma(year=year,step=step)
+        alphas[:,i] = get_basepath_alpha(year=year,step=step)
+        i += 1
+    for i in range(len(ISO)):
+        outstr = '{0}'.format(ISO[i])
+        for j in range(len(years)):
+            outstr += ' & {0:.2f}'.format(alphas[i,j])
+        for j in range(len(years)):
+            outstr += ' & {0:.2f}'.format(gammas[i,j])
+        print outstr + r' \\'
 
 
 ######################################################
