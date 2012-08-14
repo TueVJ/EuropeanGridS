@@ -795,7 +795,7 @@ Then one can load all the functions for the power flow by
 \noindent and then type
 
 \noindent \texttt{N=Nodes()\\
-zdcpf(N)
+F=sdcpf(N)
 }
 
 \noindent to start a default run. Alternatively, one can set some of the
@@ -808,9 +808,9 @@ gammas=[0.25,0.5,0.75]\\
 for i in range(len(gammas)):\\
 }
 \indent
-\texttt{N.setgammas(N,gammas[i])}\\
+\texttt{N.set\_gammas(gammas[i])}\\
 \indent
-\texttt{F = zdcpf(N)}
+\texttt{F = sdcpf(N)}
 
 Note that each iteration overwrites the previous 70128 points in the
 Nodes and F variables, and so they must be saved at every
