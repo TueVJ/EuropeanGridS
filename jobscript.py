@@ -892,7 +892,7 @@ def collect_balancing_quantiles_latex(path='./results/',years=[2030,2050],lineca
         print outstr+r' \\'
 
 
-def collect_logistic_growth_latex(step=2,years=[2020,2030,2040,2045,2050]):
+def collect_logistic_growth_latex(step=2,years=[2020,2030,2035,2040,2050]):
     N = Nodes()
     ISO = ['{0}'.format(n.label) for n in N]
     del N
